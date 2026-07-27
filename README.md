@@ -29,6 +29,7 @@ of scope until the paper reproduction is complete.
 The development environment uses Conda through Miniforge and Python 3.10.
 
 ```bash
+bash scripts/install_miniforge.sh  # only when Conda is not installed
 bash scripts/bootstrap_env.sh
 conda run -n rapo pytest
 ```

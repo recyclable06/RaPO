@@ -1,0 +1,11 @@
+name: rapo
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools
+  - wheel
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.5.1

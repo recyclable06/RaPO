@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Environments and editor state
+.conda/
+.venv/
+.vscode/
+.idea/
+
+# Training artifacts
+data/
+checkpoints/
+outputs/
+wandb/
+logs/
+
+# Local source material and temporary inspection data
+/2605.09640v1.pdf
+/实验室服务器使用规范.md
+/tmp/
+
+# Credentials
+*.pem
+*.key
+isee_rsa

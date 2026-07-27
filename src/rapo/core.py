@@ -105,11 +105,19 @@ class CrossTaskAdvantageNormalizer:
         self.updates += 1
         return self.ema_std
 
-    def advantages(self, total_rewards: Tensor, num_generations: int) -> Tensor:
+    def advantages(
+        self,
+        total_rewards: Tensor,
+        num_generations: int,
+        batch_std: Tensor | float | None = None,
+        *,
+        update: bool = True,
+    ) -> Tensor:
         """Compute Equation (6) and update CTAN from the current reward batch.
 
-        ``total_rewards`` must already contain globally gathered rewards in a
-        distributed run. Rows are ordered in contiguous rollout groups.
+        Rows in ``total_rewards`` are ordered in contiguous rollout groups.
+        Distributed callers pass the standard deviation of globally gathered
+        rewards through ``batch_std`` while retaining local group means.
         """
 
         if total_rewards.ndim != 1:
@@ -121,8 +129,22 @@ class CrossTaskAdvantageNormalizer:
 
         grouped_rewards = total_rewards.view(-1, num_generations)
         group_means = grouped_rewards.mean(dim=1).repeat_interleave(num_generations)
-        batch_std = total_rewards.detach().float().std(correction=1)
-        denominator = total_rewards.new_tensor(self.update(batch_std) + self.epsilon)
+        if batch_std is None:
+            batch_std = total_rewards.detach().float().std(correction=1)
+
+        if update:
+            scale = self.update(batch_std)
+        else:
+            if isinstance(batch_std, Tensor):
+                if batch_std.numel() != 1:
+                    raise ValueError("batch_std must be a scalar")
+                current_std = float(batch_std.detach().cpu().item())
+            else:
+                current_std = float(batch_std)
+            self._validate_std(current_std)
+            scale = self.ema_std if self.ema_std is not None else current_std
+
+        denominator = total_rewards.new_tensor(scale + self.epsilon)
         return (total_rewards - group_means) / denominator
 
     def state_dict(self) -> dict[str, Any]:

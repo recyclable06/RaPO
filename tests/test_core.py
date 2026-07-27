@@ -69,6 +69,21 @@ def test_ctan_advantages_preserve_group_centering():
     assert normalizer.updates == 1
 
 
+def test_ctan_can_use_global_std_without_updating_during_evaluation():
+    normalizer = CrossTaskAdvantageNormalizer(beta=0.5, epsilon=1e-4)
+    rewards = torch.tensor([0.0, 2.0, 4.0, 6.0])
+
+    normalizer.advantages(
+        rewards,
+        num_generations=2,
+        batch_std=torch.tensor(10.0),
+        update=False,
+    )
+
+    assert normalizer.ema_std is None
+    assert normalizer.updates == 0
+
+
 def test_ctan_rejects_incompatible_saved_configuration():
     source = CrossTaskAdvantageNormalizer(beta=0.5)
     source.update(1.0)

@@ -6,9 +6,19 @@ from rapo.core import (
     retention_reward,
     trajectory_drift,
 )
+from rapo.integration import (
+    RAPO_STATE_NAME,
+    RapoBatchRewards,
+    RapoController,
+    RapoTrainerConfig,
+)
 
 __all__ = [
+    "RAPO_STATE_NAME",
     "CrossTaskAdvantageNormalizer",
+    "RapoBatchRewards",
+    "RapoController",
+    "RapoTrainerConfig",
     "combine_rewards",
     "retention_reward",
     "trajectory_drift",

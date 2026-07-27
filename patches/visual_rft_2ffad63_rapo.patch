@@ -1,0 +1,228 @@
+diff --git a/src/virft/src/open_r1/grpo_classification.py b/src/virft/src/open_r1/grpo_classification.py
+index 6e6fdec..b2d017e 100644
+--- a/src/virft/src/open_r1/grpo_classification.py
++++ b/src/virft/src/open_r1/grpo_classification.py
+@@ -15,7 +15,8 @@
+ import os
+ import re
+ from datetime import datetime
+-from dataclasses import dataclass, field
++from dataclasses import dataclass, field, replace
++from pathlib import Path
+ from typing import Optional
+ 
+ from datasets import load_dataset, load_from_disk
+@@ -24,6 +25,7 @@ from transformers import Qwen2VLForConditionalGeneration
+ from math_verify import parse, verify
+ # from open_r1.trainer import Qwen2VLGRPOTrainer
+ from open_r1.trainer import Qwen2VLGRPOTrainer, Qwen2VLGRPOVLLMTrainer
++from rapo.integration import RAPO_STATE_NAME, RapoTrainerConfig
+ from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
+ 
+ import json
+@@ -119,7 +121,7 @@ SYSTEM_PROMPT = (
+ )
+ 
+ 
+-def main(script_args, training_args, model_args):
++def main(script_args, training_args, model_args, rapo_args):
+     # Get reward functions
+     # import pdb; pdb.set_trace()
+     script_args.reward_funcs = ['accuracy','format']
+@@ -167,12 +169,26 @@ def main(script_args, training_args, model_args):
+         dataset = dataset.remove_columns("messages")
+ 
+     
++    if rapo_args.rapo_enabled and training_args.use_vllm:
++        raise ValueError("The initial RaPO integration does not support the vLLM trainer")
++    if (
++        rapo_args.rapo_enabled
++        and rapo_args.rapo_state_path is None
++        and rapo_args.rapo_resume_from_checkpoint is not None
++    ):
++        rapo_args = replace(
++            rapo_args,
++            rapo_state_path=str(
++                Path(rapo_args.rapo_resume_from_checkpoint) / RAPO_STATE_NAME
++            ),
++        )
++
+     trainer_cls = Qwen2VLGRPOTrainer if not training_args.use_vllm else Qwen2VLGRPOVLLMTrainer
+     print("using: ", trainer_cls)
+ 
+ 
+     # Initialize the GRPO trainer
+-    trainer = trainer_cls(
++    trainer_kwargs = dict(
+         model=model_args.model_name_or_path,
+         reward_funcs=reward_funcs,
+         args=training_args,
+@@ -183,9 +199,15 @@ def main(script_args, training_args, model_args):
+         max_pixels=script_args.max_pixels,
+         min_pixels=script_args.min_pixels,
+     )
++    if not training_args.use_vllm:
++        trainer_kwargs["rapo_config"] = rapo_args
++    trainer = trainer_cls(**trainer_kwargs)
+ 
+     # Train and push the model to the Hub
+-    trainer.train()
++    if rapo_args.rapo_resume_from_checkpoint is None:
++        trainer.train()
++    else:
++        trainer.train(resume_from_checkpoint=rapo_args.rapo_resume_from_checkpoint)
+ 
+     # Save and push to hub
+     trainer.save_model(training_args.output_dir)
+@@ -194,6 +213,6 @@ def main(script_args, training_args, model_args):
+ 
+ 
+ if __name__ == "__main__":
+-    parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
+-    script_args, training_args, model_args = parser.parse_args_and_config()
+-    main(script_args, training_args, model_args)
++    parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig, RapoTrainerConfig))
++    script_args, training_args, model_args, rapo_args = parser.parse_args_and_config()
++    main(script_args, training_args, model_args, rapo_args)
+diff --git a/src/virft/src/open_r1/trainer/grpo_trainer.py b/src/virft/src/open_r1/trainer/grpo_trainer.py
+index b35f8ba..1d7ef98 100644
+--- a/src/virft/src/open_r1/trainer/grpo_trainer.py
++++ b/src/virft/src/open_r1/trainer/grpo_trainer.py
+@@ -15,6 +15,7 @@
+ import os
+ import textwrap
+ from collections import defaultdict
++from pathlib import Path
+ from typing import Any, Callable, Optional, Union
+ 
+ import torch
+@@ -39,8 +40,14 @@ from transformers import (
+     is_wandb_available,
+ )
+ from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
++from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+ from transformers.utils import is_peft_available
+ 
++from rapo.integration import (
++    RAPO_STATE_NAME,
++    RapoController,
++    RapoTrainerConfig,
++)
+ from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
+ from trl.models import create_reference_model, prepare_deepspeed, unwrap_model_for_generation
+ from trl.trainer.grpo_config import GRPOConfig
+@@ -60,6 +67,17 @@ if is_wandb_available():
+ RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
+ 
+ 
++class _RapoStateCallback(TrainerCallback):
++    def __init__(self, controller: RapoController):
++        self.controller = controller
++
++    def on_save(self, args, state, control, **kwargs):
++        if args.should_save:
++            checkpoint_dir = Path(args.output_dir) / f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}"
++            self.controller.save_state_file(checkpoint_dir / RAPO_STATE_NAME)
++        return control
++
++
+ class Qwen2VLGRPOTrainer(Trainer):
+     """
+     Trainer for the Group Relative Policy Optimization (GRPO) method. This algorithm was initially proposed in the
+@@ -159,7 +177,19 @@ class Qwen2VLGRPOTrainer(Trainer):
+         max_pixels: Optional[int] = 12845056,
+         min_pixels: Optional[int] = 3136,
+         attn_implementation: str = "flash_attention_2",
++        rapo_config: Optional[RapoTrainerConfig] = None,
+     ):
++        rapo_config = rapo_config or RapoTrainerConfig()
++        self.rapo_controller = None
++        if rapo_config.rapo_enabled:
++            if rapo_config.rapo_task_index >= 2 and peft_config is not None:
++                raise ValueError(
++                    "RaPO task 2+ does not support PEFT because the disabled adapter "
++                    "is not the frozen previous-task policy."
++                )
++            self.rapo_controller = RapoController(rapo_config)
++            callbacks = [*(callbacks or []), _RapoStateCallback(self.rapo_controller)]
++
+         # Args
+         if args is None:
+             model_name = model if isinstance(model, str) else model.config._name_or_path
+@@ -450,16 +480,35 @@ class Qwen2VLGRPOTrainer(Trainer):
+                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
+ 
+         # Sum the rewards from all reward functions
+-        rewards = rewards_per_func.sum(dim=1)
+-
+-        # Compute grouped-wise rewards
+-        mean_grouped_rewards = rewards.view(-1, self.num_generations).mean(dim=1)
+-        std_grouped_rewards = rewards.view(-1, self.num_generations).std(dim=1)
+-
+-        # Normalize the rewards to compute the advantages
+-        mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
+-        std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
+-        advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
++        task_rewards = rewards_per_func.sum(dim=1)
++        rapo_batch = None
++        if self.rapo_controller is None:
++            rewards = task_rewards
++            mean_grouped_rewards = rewards.view(-1, self.num_generations).mean(dim=1)
++            std_grouped_rewards = rewards.view(-1, self.num_generations).std(dim=1)
++            mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
++            std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
++            advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
++        else:
++            rapo_batch = self.rapo_controller.build_rewards(
++                per_token_logps,
++                ref_per_token_logps,
++                completion_mask,
++                task_rewards,
++            )
++            rewards = rapo_batch.total_rewards
++            global_rewards = self.accelerator.gather(rewards.detach())
++            advantages = self.rapo_controller.advantages(
++                rewards,
++                self.num_generations,
++                global_total_rewards=global_rewards,
++                update=model.training,
++            )
++            std_grouped_rewards = (
++                rewards.view(-1, self.num_generations)
++                .std(dim=1)
++                .repeat_interleave(self.num_generations, dim=0)
++            )
+ 
+         # x - x.detach() allows for preserving gradients from x
+         per_token_loss = torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
+@@ -478,6 +527,17 @@ class Qwen2VLGRPOTrainer(Trainer):
+                 reward_func_name = reward_func.__name__
+             self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
+ 
++        if rapo_batch is not None:
++            task_reward = self.accelerator.gather_for_metrics(rapo_batch.task_rewards).mean().item()
++            self._metrics["rapo/task_reward"].append(task_reward)
++            if self.rapo_controller.ctan_ema_std is not None:
++                self._metrics["rapo/ctan_ema_std"].append(self.rapo_controller.ctan_ema_std)
++            if rapo_batch.retention_rewards is not None:
++                retention = self.accelerator.gather_for_metrics(rapo_batch.retention_rewards).mean().item()
++                drift = self.accelerator.gather_for_metrics(rapo_batch.drift).mean().item()
++                self._metrics["rapo/retention_reward"].append(retention)
++                self._metrics["rapo/drift"].append(drift)
++
+         self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
+ 
+         self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
+@@ -487,6 +547,12 @@ class Qwen2VLGRPOTrainer(Trainer):
+ 
+         return loss
+ 
++    def save_model(self, output_dir: Optional[str] = None, _internal_call: bool = False):
++        super().save_model(output_dir, _internal_call)
++        if self.rapo_controller is not None and self.is_world_process_zero():
++            state_dir = Path(output_dir or self.args.output_dir)
++            self.rapo_controller.save_state_file(state_dir / RAPO_STATE_NAME)
++
+     def log(self, logs: dict[str, float], start_time: Optional[float] = None) -> None:
+         metrics = {key: sum(val) / len(val) for key, val in self._metrics.items()}  # average the metrics
+         logs = {**logs, **metrics}

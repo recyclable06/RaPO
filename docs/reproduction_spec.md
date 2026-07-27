@@ -48,6 +48,13 @@ These choices are not fully specified in the paper and must remain explicit:
 - CTAN's batch standard deviation must be computed from globally gathered
   rewards before distributed trainer integration.
 - `epsilon = 1e-4`, matching the public GRPO baseline.
+- The paper does not disclose its three class orders or selected 5-shot
+  examples. Pending an official release, use class-order seeds `0`, `1`, and
+  `2`, keep `sample_seed = 0`, select five deterministically ordered images per
+  class for training, and use the remaining images for testing.
+- Last Accuracy is computed as the micro-average over every final-stage test
+  sample. Forgetting is the mean historical-best accuracy drop over tasks
+  `1..T-1`.
 - Undisclosed training hyperparameters will start from the closest Visual-RFT
   classification configuration and be explored only on a fixed development
   task order before the final configurations are frozen.

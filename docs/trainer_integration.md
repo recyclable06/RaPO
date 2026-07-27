@@ -28,6 +28,12 @@ unchanged. With `rapo_enabled=true`, the trainer:
 5. avoids CTAN updates while the model is in evaluation mode;
 6. writes `rapo_state.json` into Trainer checkpoints and final model output.
 
+The patch also replaces Visual-RFT's classification substring comparison with
+the paper's exact-match verifier. The final class is extracted from one
+`<answer>` span, lower-cased, and normalized by mapping underscores, hyphens,
+and periods to spaces. A label such as `cat` therefore no longer receives a
+false positive for `catfish`.
+
 ## Required task sequencing
 
 Task 1 starts from `Qwen/Qwen2-VL-2B-Instruct` and does not pass a RaPO state

@@ -13,9 +13,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+data = [
+    "datasets>=3.2,<4",
+    "pillow",
+]
 test = [
     "pytest>=8,<9",
 ]
+
+[project.scripts]
+rapo-build-imagenet-r = "rapo.data:main"
+rapo-evaluate = "rapo.evaluation:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

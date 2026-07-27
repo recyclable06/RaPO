@@ -20,7 +20,7 @@ of scope until the paper reproduction is complete.
 - [x] Unit tests cover masking, one-sided drift truncation, stop-gradient behavior,
       reward shaping, and CTAN persistence.
 - [x] Add a reviewable integration patch for the pinned Visual-RFT GRPO trainer.
-- [ ] Build the deterministic ImageNet-R task split and evaluator.
+- [x] Build the deterministic ImageNet-R task split and evaluator.
 - [ ] Run a reduced two-task GRPO/RaPO experiment.
 - [ ] Run the full 10-task experiment.
 
@@ -50,4 +50,7 @@ is verified.
 See [docs/reproduction_spec.md](docs/reproduction_spec.md) for the executable
 reproduction contract and [docs/upstream.md](docs/upstream.md) for upstream
 provenance. Trainer patching and task-to-task state handling are documented in
-[docs/trainer_integration.md](docs/trainer_integration.md).
+[docs/trainer_integration.md](docs/trainer_integration.md). Deterministic
+ImageNet-R manifests, Visual-RFT dataset export, and continual metrics are
+documented in
+[docs/data_and_evaluation.md](docs/data_and_evaluation.md).

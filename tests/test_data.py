@@ -118,6 +118,23 @@ def test_class_map_supports_standard_imagenet_index_layout(tmp_path):
     }
 
 
+def test_class_map_supports_official_imagenet_r_readme(tmp_path):
+    class_map_path = tmp_path / "README.txt"
+    class_map_path.write_text(
+        """ImageNet-R contains 30,000 images.
+
+n01443537 goldfish
+n01484850 great_white_shark
+""",
+        encoding="utf-8",
+    )
+
+    assert load_class_map(class_map_path) == {
+        "n01443537": "goldfish",
+        "n01484850": "great white shark",
+    }
+
+
 def test_manifest_rejects_class_count_mismatch(tmp_path):
     image_root, class_map = make_image_tree(tmp_path)
 

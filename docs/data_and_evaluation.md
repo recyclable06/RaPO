@@ -40,7 +40,15 @@ Extract ImageNet-R into one WNID directory per class:
 └── ...
 ```
 
-Provide an ImageNet class map as JSON. Both of these layouts are accepted:
+The preferred class map is the `README.txt` included in the official
+ImageNet-R archive. It ends with all 200 WNID-label pairs:
+
+```text
+n01443537 goldfish
+n01484850 great_white_shark
+```
+
+Common ImageNet JSON layouts are also accepted:
 
 ```json
 {
@@ -55,8 +63,20 @@ Provide an ImageNet class map as JSON. Both of these layouts are accepted:
 ```
 
 The builder scans the image root and requires exactly 200 non-empty class
-directories. A 1,000-class ImageNet map is valid because only the WNIDs present
-in ImageNet-R are used.
+directories. Using the included README avoids a separate metadata download. A
+1,000-class ImageNet JSON map remains valid because only WNIDs present in
+ImageNet-R are used.
+
+The official archive used for this reproduction is:
+
+```text
+URL: https://people.eecs.berkeley.edu/~hendrycks/imagenet-r.tar
+Bytes: 2191079936
+SHA-256: 18c6bf493b39a0d975d48e587437f562caab9c52ae6327dcfa9dd8eb54aa1b52
+```
+
+After extraction it contains 200 class directories, 30,000 JPEG images, and
+one top-level `README.txt`.
 
 ## Build manifests
 
@@ -67,7 +87,7 @@ per class order:
 for seed in 0 1 2; do
   rapo-build-imagenet-r \
     /home/zhenglifeng/data/imagenet-r \
-    /home/zhenglifeng/data/imagenet_class_index.json \
+    /home/zhenglifeng/data/imagenet-r/README.txt \
     "/home/zhenglifeng/data/rapo-imagenet-r/order_${seed}" \
     --class-order-seed "${seed}" \
     --sample-seed 0

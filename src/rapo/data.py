@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -13,6 +14,7 @@ from rapo.evaluation import normalize_class_name
 
 SCHEMA_VERSION = 1
 IMAGE_EXTENSIONS = frozenset({".jpeg", ".jpg", ".png", ".webp"})
+WNID_LABEL_PATTERN = re.compile(r"^(n\d{8})\s+(\S+)\s*$")
 CLASSIFICATION_PROMPT = """Perform image classification on the given visual input.
 You MUST choose exactly one class name from this list:
 {class_names}
@@ -30,10 +32,23 @@ def _display_label(value: str) -> str:
 
 
 def load_class_map(path: str | Path) -> dict[str, str]:
-    """Load WNID-to-label data from common ImageNet JSON layouts."""
+    """Load WNID labels from ImageNet JSON or the official ImageNet-R README."""
 
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    text = Path(path).read_text(encoding="utf-8")
     class_map: dict[str, str] = {}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        for line in text.splitlines():
+            match = WNID_LABEL_PATTERN.fullmatch(line.strip())
+            if match:
+                wnid, label = match.groups()
+                class_map[wnid] = _display_label(label)
+        if not class_map:
+            raise ValueError(
+                "Class map is neither supported JSON nor a WNID-label text mapping"
+            )
+        return class_map
 
     if isinstance(payload, dict):
         for key, value in payload.items():

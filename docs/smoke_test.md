@@ -98,6 +98,50 @@ the 20-step test needs more or larger cards.
 Immediately before every launch, inspect `nvidia-smi`, choose idle devices, and
 set `GPU_IDS` explicitly. Run long commands in `tmux`.
 
+### Reduced RTX 2080 Ti gate
+
+The available 8-GPU node can be used before requesting a newer card, but this
+is a compatibility test rather than a paper-faithful run. RTX 2080 Ti does not
+support BF16, and the frozen FlashAttention-2 package does not support its
+Turing architecture. The tracked wrapper therefore uses FP16, PyTorch SDPA,
+gradient checkpointing, two rollouts, a 32-token completion limit, and a
+smaller image budget. The general smoke script keeps its original H100/4090
+defaults unless these settings are explicitly overridden.
+
+First check a single idle GPU without starting training:
+
+```bash
+nvidia-smi
+CUDA_VISIBLE_DEVICES=2 conda run -n rapo-train \
+  python scripts/probe_qwen_gpu.py \
+  /home/zhenglifeng/models/Qwen2-VL-2B-Instruct-895c3a4
+```
+
+If the load probe passes, recheck GPU availability and use every currently
+idle 2080 Ti for the one-step distributed gate. For example, when GPUs 0 and 1
+are occupied and GPUs 2 through 7 are idle:
+
+```bash
+GPU_IDS=2,3,4,5,6,7 \
+VISUAL_RFT_ROOT=/home/zhenglifeng/projects/Visual-RFT-RaPO-2b5561a \
+MODEL_PATH=/home/zhenglifeng/models/Qwen2-VL-2B-Instruct-895c3a4 \
+DATASET_PATH=/home/zhenglifeng/data/rapo-imagenet-r/order_0/visual_rft/task_01 \
+OUTPUT_DIR=/home/zhenglifeng/outputs/rapo-smoke/2080ti-grpo-task01-step1 \
+  bash scripts/run_imagenet_r_2080ti_smoke.sh grpo 1 1
+```
+
+Do not interpret this reduced run's reward or accuracy as a reproduction
+result. Its acceptance criteria are model loading, distributed initialization,
+one optimizer step, checkpoint writing, finite loss, no OOM, and no residual
+GPU process. If it passes, increase to eight rollouts before using the result
+to judge the paper-locked configuration:
+
+```bash
+RAPO_SMOKE_NUM_GENERATIONS=8 \
+RAPO_SMOKE_MAX_COMPLETION_LENGTH=64 \
+  bash scripts/run_imagenet_r_2080ti_smoke.sh grpo 1 1
+```
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

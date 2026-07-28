@@ -12,6 +12,15 @@ max_steps="${3:-20}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 conda_exe="${CONDA_EXE:-${HOME}/miniforge3/bin/conda}"
 env_name="${RAPO_TRAIN_ENV:-rapo-train}"
+precision="${RAPO_SMOKE_PRECISION:-bf16}"
+attn_implementation="${RAPO_SMOKE_ATTN_IMPLEMENTATION:-flash_attention_2}"
+max_prompt_length="${RAPO_SMOKE_MAX_PROMPT_LENGTH:-1024}"
+max_completion_length="${RAPO_SMOKE_MAX_COMPLETION_LENGTH:-256}"
+gradient_accumulation_steps="${RAPO_SMOKE_GRADIENT_ACCUMULATION_STEPS:-2}"
+gradient_checkpointing="${RAPO_SMOKE_GRADIENT_CHECKPOINTING:-false}"
+max_pixels="${RAPO_SMOKE_MAX_PIXELS:-401408}"
+min_pixels="${RAPO_SMOKE_MIN_PIXELS:-3136}"
+num_generations="${RAPO_SMOKE_NUM_GENERATIONS:-8}"
 
 required_variables=(
     GPU_IDS
@@ -41,6 +50,37 @@ if [[ ! "${max_steps}" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if [[ ! "${GPU_IDS}" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
     echo "GPU_IDS must be an explicit comma-separated list such as 0,1,2,3." >&2
+    exit 2
+fi
+if [[ "${precision}" != "bf16" && "${precision}" != "fp16" ]]; then
+    echo "RAPO_SMOKE_PRECISION must be either bf16 or fp16." >&2
+    exit 2
+fi
+if [[ "${attn_implementation}" != "flash_attention_2" &&
+      "${attn_implementation}" != "sdpa" &&
+      "${attn_implementation}" != "eager" ]]; then
+    echo "RAPO_SMOKE_ATTN_IMPLEMENTATION must be flash_attention_2, sdpa, or eager." >&2
+    exit 2
+fi
+if [[ "${gradient_checkpointing}" != "true" && "${gradient_checkpointing}" != "false" ]]; then
+    echo "RAPO_SMOKE_GRADIENT_CHECKPOINTING must be true or false." >&2
+    exit 2
+fi
+for value_name in \
+    max_prompt_length \
+    max_completion_length \
+    gradient_accumulation_steps \
+    max_pixels \
+    min_pixels \
+    num_generations; do
+    value="${!value_name}"
+    if [[ ! "${value}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "${value_name} must be a positive integer; found ${value}." >&2
+        exit 2
+    fi
+done
+if (( min_pixels > max_pixels )); then
+    echo "RAPO_SMOKE_MIN_PIXELS cannot exceed RAPO_SMOKE_MAX_PIXELS." >&2
     exit 2
 fi
 if [[ ! -d "${MODEL_PATH}" ]]; then
@@ -102,6 +142,11 @@ IFS=',' read -r -a gpu_id_array <<< "${GPU_IDS}"
 nproc_per_node="${#gpu_id_array[@]}"
 mkdir -p "$(dirname "${OUTPUT_DIR}")"
 
+precision_arguments=(--bf16 false --fp16 true)
+if [[ "${precision}" == "bf16" ]]; then
+    precision_arguments=(--bf16 true --fp16 false)
+fi
+
 export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
 export PYTHONPATH="${repo_root}/src:${VISUAL_RFT_ROOT}/src/virft/src${PYTHONPATH:+:${PYTHONPATH}}"
 export TOKENIZERS_PARALLELISM=false
@@ -111,6 +156,7 @@ echo "Checking GPU state immediately before launch."
 nvidia-smi --query-gpu=index,name,memory.total,memory.used,utilization.gpu \
     --format=csv,noheader
 echo "Launching ${method} task ${task_index} on CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}."
+echo "Smoke settings: precision=${precision}, attention=${attn_implementation}, prompt=${max_prompt_length}, completion=${max_completion_length}, generations=${num_generations}, max_pixels=${max_pixels}, gradient_checkpointing=${gradient_checkpointing}."
 
 "${conda_exe}" run --no-capture-output --name "${env_name}" \
     torchrun \
@@ -126,23 +172,23 @@ echo "Launching ${method} task ${task_index} on CUDA_VISIBLE_DEVICES=${CUDA_VISI
     --dataset_train_split train \
     --dataset_test_split test \
     --deepspeed "${deepspeed_config}" \
-    --max_prompt_length 1024 \
-    --max_completion_length 256 \
+    --max_prompt_length "${max_prompt_length}" \
+    --max_completion_length "${max_completion_length}" \
     --per_device_train_batch_size 1 \
-    --gradient_accumulation_steps 2 \
+    --gradient_accumulation_steps "${gradient_accumulation_steps}" \
     --learning_rate 1e-6 \
     --beta 0.04 \
     --logging_steps 1 \
-    --bf16 true \
+    "${precision_arguments[@]}" \
     --report_to none \
     --eval_strategy no \
-    --gradient_checkpointing false \
-    --attn_implementation flash_attention_2 \
-    --max_pixels 401408 \
-    --min_pixels 3136 \
+    --gradient_checkpointing "${gradient_checkpointing}" \
+    --attn_implementation "${attn_implementation}" \
+    --max_pixels "${max_pixels}" \
+    --min_pixels "${min_pixels}" \
     --max_steps "${max_steps}" \
     --save_steps "${max_steps}" \
-    --num_generations 8 \
+    --num_generations "${num_generations}" \
     --seed 0 \
     --data_seed 0 \
     "${rapo_arguments[@]}"

@@ -43,6 +43,7 @@ if [[ "${INSTALL_FLASH_ATTN:-0}" == "1" ]]; then
         python -m pip install "flash-attn==${flash_attn_version}" --no-build-isolation
 fi
 
+CUDA_VISIBLE_DEVICES="" \
 PYTHONPATH="${repo_root}/src:${visual_rft_root}/src/virft/src" \
     "${conda_exe}" run --name "${env_name}" python -c \
     'import torch, transformers, trl; import open_r1.grpo_classification; import rapo; print({"torch": torch.__version__, "transformers": transformers.__version__, "trl": trl.__version__})'

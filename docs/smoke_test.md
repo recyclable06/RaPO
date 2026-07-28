@@ -72,16 +72,28 @@ hf download Qwen/Qwen2-VL-2B-Instruct \
 ```
 
 Record file hashes after download. If direct Hugging Face access is unavailable,
-do not silently switch mirrors: first locate an existing lab copy or document
-and verify an alternative source against the pinned revision.
+use the Qwen-owned ModelScope mirror through the repository helper:
+
+```bash
+bash scripts/download_qwen_model.sh \
+  /home/zhenglifeng/models/Qwen2-VL-2B-Instruct-895c3a4
+```
+
+The helper resumes interrupted downloads and verifies every downloaded file
+against SHA-256 values obtained from the pinned Hugging Face revision. It also
+writes `SHA256SUMS` and `PROVENANCE.txt` beside the model. Do not use an
+unverified mirror or an unfrozen `main` snapshot.
 
 ## Resource gate
 
 The full paper result used 8 H100 GPUs. The first engineering gate should use
-four 24 GB or larger Ampere/Ada GPUs, preferably 4090/5090, for a one-step
-ZeRO-3 launch. This is a compatibility measurement, not a promise that four
-cards can complete the final run. Record peak memory per GPU and then decide
-whether the 20-step test needs more or larger cards.
+four 24 GB or larger Ampere/Ada GPUs, preferably RTX 4090, for a one-step
+ZeRO-3 launch. RTX 3090 is a slower fallback. Do not begin with RTX 5090:
+the frozen PyTorch 2.5.1/CUDA 12.4 and FlashAttention 2.7.4 stack predates
+Blackwell support, so using that card would first require a separate dependency
+compatibility branch. This gate is a measurement, not a promise that four cards
+can complete the final run. Record peak memory per GPU and then decide whether
+the 20-step test needs more or larger cards.
 
 Immediately before every launch, inspect `nvidia-smi`, choose idle devices, and
 set `GPU_IDS` explicitly. Run long commands in `tmux`.

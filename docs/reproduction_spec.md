@@ -59,8 +59,8 @@ These choices are not fully specified in the paper and must remain explicit:
 - Undisclosed training hyperparameters will start from the closest Visual-RFT
   classification configuration and be explored only on a fixed development
   task order before the final configurations are frozen.
-- A reduced run on 4090/5090-class hardware is an engineering compatibility
-  check, not a reproduction of the paper's reported 8-H100 hardware setting.
+- A reduced run on compatible 24 GB or larger GPUs is an engineering check,
+  not a reproduction of the paper's reported 8-H100 hardware setting.
 
 ## Acceptance gates
 

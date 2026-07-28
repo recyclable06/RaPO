@@ -130,7 +130,7 @@ index 6e6fdec..b2d017e 100644
 +    script_args, training_args, model_args, rapo_args = parser.parse_args_and_config()
 +    main(script_args, training_args, model_args, rapo_args)
 diff --git a/src/virft/src/open_r1/trainer/grpo_trainer.py b/src/virft/src/open_r1/trainer/grpo_trainer.py
-index b35f8ba..1d7ef98 100644
+index b35f8ba..7b56d25 100644
 --- a/src/virft/src/open_r1/trainer/grpo_trainer.py
 +++ b/src/virft/src/open_r1/trainer/grpo_trainer.py
 @@ -15,6 +15,7 @@
@@ -194,7 +194,17 @@ index b35f8ba..1d7ef98 100644
          # Args
          if args is None:
              model_name = model if isinstance(model, str) else model.config._name_or_path
-@@ -450,16 +480,35 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -204,6 +234,9 @@ class Qwen2VLGRPOTrainer(Trainer):
+                     "This argument can only be used when the `model` argument is a string."
+                 )
+ 
++        if args.gradient_checkpointing:
++            model.enable_input_require_grads()
++
+         if peft_config is not None:
+             model = get_peft_model(model, peft_config)
+ 
+@@ -450,16 +483,35 @@ class Qwen2VLGRPOTrainer(Trainer):
                  rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
  
          # Sum the rewards from all reward functions
@@ -240,7 +250,7 @@ index b35f8ba..1d7ef98 100644
  
          # x - x.detach() allows for preserving gradients from x
          per_token_loss = torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
-@@ -478,6 +527,17 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -478,6 +530,17 @@ class Qwen2VLGRPOTrainer(Trainer):
                  reward_func_name = reward_func.__name__
              self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
  
@@ -258,7 +268,7 @@ index b35f8ba..1d7ef98 100644
          self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
  
          self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
-@@ -487,6 +547,12 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -487,6 +550,12 @@ class Qwen2VLGRPOTrainer(Trainer):
  
          return loss
  

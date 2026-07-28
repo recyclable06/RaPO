@@ -3,6 +3,8 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+export DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:-${script_dir}/../configs/deepspeed_zero3_cpu_offload.json}"
+export MAX_JOBS="${MAX_JOBS:-4}"
 export RAPO_SMOKE_PRECISION="${RAPO_SMOKE_PRECISION:-fp16}"
 export RAPO_SMOKE_ATTN_IMPLEMENTATION="${RAPO_SMOKE_ATTN_IMPLEMENTATION:-sdpa}"
 export RAPO_SMOKE_MAX_PROMPT_LENGTH="${RAPO_SMOKE_MAX_PROMPT_LENGTH:-512}"

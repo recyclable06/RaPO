@@ -104,9 +104,11 @@ The available 8-GPU node can be used before requesting a newer card, but this
 is a compatibility test rather than a paper-faithful run. RTX 2080 Ti does not
 support BF16, and the frozen FlashAttention-2 package does not support its
 Turing architecture. The tracked wrapper therefore uses FP16, PyTorch SDPA,
-gradient checkpointing, two rollouts, a 32-token completion limit, and a
-smaller image budget. The general smoke script keeps its original H100/4090
-defaults unless these settings are explicitly overridden.
+gradient checkpointing, ZeRO-3 CPU optimizer offload, two rollouts, a 32-token
+completion limit, and a smaller image budget. CPU offload preserves the AdamW
+optimizer while reserving device memory for generation. The general smoke
+script keeps its original H100/4090 defaults unless these settings are
+explicitly overridden.
 
 First check a single idle GPU without starting training:
 
@@ -133,8 +135,11 @@ OUTPUT_DIR=/home/zhenglifeng/outputs/rapo-smoke/2080ti-grpo-task01-step1 \
 Do not interpret this reduced run's reward or accuracy as a reproduction
 result. Its acceptance criteria are model loading, distributed initialization,
 one optimizer step, checkpoint writing, finite loss, no OOM, and no residual
-GPU process. If it passes, increase to eight rollouts before using the result
-to judge the paper-locked configuration:
+GPU process. A nonzero grouped reward standard deviation must also produce a
+nonzero gradient norm; the trainer patch explicitly enables input gradients
+when reentrant gradient checkpointing is active. If the reduced gate passes,
+increase to eight rollouts before using the result to judge the paper-locked
+configuration:
 
 ```bash
 RAPO_SMOKE_NUM_GENERATIONS=8 \

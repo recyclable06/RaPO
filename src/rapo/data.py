@@ -287,14 +287,14 @@ def export_visual_rft_task(
     }
     seen_test_rows = []
     for eval_task in range(1, task_index + 1):
-        rows = visual_rft_rows(
-            manifest,
-            image_root,
-            task_index=task_index,
-            eval_task=eval_task,
+        seen_test_rows.extend(
+            visual_rft_rows(
+                manifest,
+                image_root,
+                task_index=task_index,
+                eval_task=eval_task,
+            )
         )
-        split_rows[f"test_task_{eval_task:02d}"] = rows
-        seen_test_rows.extend(rows)
     split_rows["test"] = seen_test_rows
 
     dataset_dict = datasets.DatasetDict(

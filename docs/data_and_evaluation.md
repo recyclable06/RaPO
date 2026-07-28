@@ -127,13 +127,16 @@ visual_rft/task_10/
 Each task-stage dataset contains:
 
 - `train`: only the current task's 100 training examples;
-- `test`: all test examples from tasks observed so far;
-- `test_task_01`, ..., `test_task_T`: per-task splits used to construct the
-  accuracy matrix.
+- `test`: all test examples from tasks observed so far.
 
-All rows at stage `T` use the same cumulative vocabulary through task `T`.
-Image fields retain absolute paths to the source ImageNet-R tree, so the source
-tree must remain at the same server path during training and evaluation.
+Each test row retains its originating `task_index`, which is used to group
+predictions into the lower-triangular accuracy matrix. All rows at stage `T`
+use the same cumulative vocabulary through task `T`.
+
+Hugging Face `save_to_disk` embeds image bytes in the Arrow shards. Export only
+the class order and task stages currently needed; do not pre-export all three
+orders and all 10 stages. The source ImageNet-R tree is still retained because
+the manifest and future stage exports refer to its relative paths.
 
 ## Prediction and metric formats
 
@@ -143,8 +146,9 @@ The evaluator accepts JSONL prediction rows:
 {"after_task": 1, "eval_task": 1, "completion": "<think>...</think><answer>goldfish</answer>", "target": "goldfish"}
 ```
 
-After each trained task `t`, generate predictions separately on
-`test_task_01` through `test_task_t` and record both task indices. Then run:
+After each trained task `t`, generate predictions on its `test` split, copy the
+row's `task_index` into `eval_task`, and record the current stage as
+`after_task`. Then run:
 
 ```bash
 rapo-evaluate predictions.jsonl \

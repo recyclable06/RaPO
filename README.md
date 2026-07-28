@@ -21,6 +21,7 @@ of scope until the paper reproduction is complete.
       reward shaping, and CTAN persistence.
 - [x] Add a reviewable integration patch for the pinned Visual-RFT GRPO trainer.
 - [x] Build the deterministic ImageNet-R task split and evaluator.
+- [x] Freeze a separate Visual-RFT training environment and GPU smoke runbook.
 - [ ] Run a reduced two-task GRPO/RaPO experiment.
 - [ ] Run the full 10-task experiment.
 
@@ -36,8 +37,9 @@ conda run -n rapo pytest
 
 The initial environment deliberately excludes FlashAttention and the full
 Visual-RFT dependency stack. This keeps CPU/unit-test setup independent of GPU
-architecture. Training dependencies will be added after the core implementation
-is verified.
+architecture. The isolated `rapo-train` specification and launch procedure are
+documented in [docs/smoke_test.md](docs/smoke_test.md); do not run Visual-RFT's
+moving, conflicting upstream installer directly.
 
 ## Repository policy
 

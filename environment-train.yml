@@ -1,0 +1,24 @@
+name: rapo-train
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy=1.26
+  - pip
+  - setuptools
+  - wheel
+  - ninja
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.5.1+cu124
+      - torchvision==0.20.1+cu124
+      - accelerate==1.2.1
+      - datasets==3.6.0
+      - deepspeed==0.15.4
+      - einops==0.8.1
+      - pillow==11.1.0
+      - safetensors==0.5.2
+      - sentencepiece==0.2.0
+      - transformers @ git+https://github.com/huggingface/transformers.git@336dc69d63d56f232a183a3e7f52790429b871ef
+      - trl==0.14.0
+      - pytest>=8,<9

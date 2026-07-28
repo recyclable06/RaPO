@@ -10,6 +10,7 @@ It distinguishes paper-stated facts from implementation assumptions.
 - Protocol: 200 classes, 10 tasks, 20 disjoint classes per task, 5 training
   examples per class, no replay of previous-task training examples.
 - Training: sequential tasks, 2 epochs per task.
+- Hardware reported by the paper: 8 NVIDIA H100 GPUs for all experiments.
 - Initial comparison: GRPO versus RaPO under the same non-RaPO settings.
 - Final reporting: three random class orders, Last Accuracy, Forgetting, and the
   full task-by-task accuracy matrix.
@@ -58,6 +59,8 @@ These choices are not fully specified in the paper and must remain explicit:
 - Undisclosed training hyperparameters will start from the closest Visual-RFT
   classification configuration and be explored only on a fixed development
   task order before the final configurations are frozen.
+- A reduced run on 4090/5090-class hardware is an engineering compatibility
+  check, not a reproduction of the paper's reported 8-H100 hardware setting.
 
 ## Acceptance gates
 

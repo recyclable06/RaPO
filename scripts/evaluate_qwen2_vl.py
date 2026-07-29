@@ -11,6 +11,7 @@ from typing import Any
 
 import torch
 from datasets import DatasetDict
+from rapo.evaluation import pad_image_to_minimum_size
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
 
@@ -72,6 +73,10 @@ def main() -> None:
     processor = AutoProcessor.from_pretrained(args.model_path)
     processor.image_processor.max_pixels = args.max_pixels
     processor.image_processor.min_pixels = args.min_pixels
+    spatial_factor = (
+        int(processor.image_processor.patch_size)
+        * int(processor.image_processor.merge_size)
+    )
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         args.model_path,
         torch_dtype=torch.float16,
@@ -103,9 +108,21 @@ def main() -> None:
             )
             for message in messages
         ]
+        images = []
+        for row in batch:
+            image = row["image"]
+            prepared_image = pad_image_to_minimum_size(image, spatial_factor)
+            if prepared_image.size != image.size:
+                print(
+                    f"padded {row['relative_path']} from "
+                    f"{image.size[0]}x{image.size[1]} to "
+                    f"{prepared_image.size[0]}x{prepared_image.size[1]}",
+                    flush=True,
+                )
+            images.append(prepared_image)
         inputs = processor(
             text=texts,
-            images=[row["image"] for row in batch],
+            images=images,
             return_tensors="pt",
             padding=True,
             padding_side="left",

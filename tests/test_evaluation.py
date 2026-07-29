@@ -6,6 +6,7 @@ from rapo.evaluation import (
     compute_continual_metrics,
     extract_answer,
     normalize_class_name,
+    pad_image_to_minimum_size,
 )
 
 
@@ -21,6 +22,18 @@ def test_classification_matching_follows_paper_normalization_and_exactness():
     )
     assert not classification_answer_is_correct("cat", "cat")
     assert extract_answer("<answer>a</answer><answer>b</answer>") is None
+
+
+def test_tiny_images_are_padded_to_the_model_spatial_factor():
+    image_module = pytest.importorskip("PIL.Image")
+    tiny_image = image_module.new("RGB", (27, 30), color="white")
+
+    padded = pad_image_to_minimum_size(tiny_image, 28)
+
+    assert padded.size == (28, 30)
+    assert pad_image_to_minimum_size(padded, 28) is padded
+    with pytest.raises(ValueError, match="minimum_size must be positive"):
+        pad_image_to_minimum_size(tiny_image, 0)
 
 
 def test_prediction_aggregation_counts_each_accuracy_cell():

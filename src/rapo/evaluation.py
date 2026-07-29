@@ -43,6 +43,33 @@ def classification_answer_is_correct(completion: str, target: str) -> bool:
     return normalize_class_name(predicted_answer) == normalize_class_name(target_answer)
 
 
+def pad_image_to_minimum_size(image: Any, minimum_size: int) -> Any:
+    """Pad a PIL image so neither spatial dimension is below ``minimum_size``."""
+
+    if minimum_size < 1:
+        raise ValueError("minimum_size must be positive")
+    width, height = image.size
+    if width >= minimum_size and height >= minimum_size:
+        return image
+
+    from PIL import ImageOps
+
+    horizontal_padding = max(0, minimum_size - width)
+    vertical_padding = max(0, minimum_size - height)
+    left = horizontal_padding // 2
+    top = vertical_padding // 2
+    return ImageOps.expand(
+        image,
+        border=(
+            left,
+            top,
+            horizontal_padding - left,
+            vertical_padding - top,
+        ),
+        fill=0,
+    )
+
+
 @dataclass(frozen=True)
 class ContinualMetrics:
     """Metrics derived from the lower-triangular continual-learning results."""

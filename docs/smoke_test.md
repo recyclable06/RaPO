@@ -167,6 +167,13 @@ It differs from the default 2080 Ti configuration only by starting at 1,024.
 Do not silently replace the default file or compare methods with different
 loss-scale configurations.
 
+If the 1,024 scale later produces a repeated learning-rate value and stale
+gradient norm, stop that run and preserve its log as a skipped-update failure.
+The explicit next fallback is
+`configs/deepspeed_zero3_cpu_offload_scale9.json`, which starts at 512. Restart
+both compared methods from the same preceding-task models with this file; do
+not pair a completed scale-1,024 result with a scale-512 counterpart.
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

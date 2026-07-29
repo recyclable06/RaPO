@@ -153,6 +153,13 @@ For a short multi-step stability check that does not need to be resumed, set
 the Visual-RFT entrypoint still writes the final model. Keep the default
 `steps` strategy for any run whose optimizer state must be resumed or audited.
 
+If a batch reproducibly fails during convolution backward with
+`CUDNN_STATUS_INTERNAL_ERROR`, the patched entrypoint supports the explicit
+compatibility switch `RAPO_DISABLE_CUDNN=1`. It makes PyTorch use its CUDA
+fallback instead of cuDNN and must be recorded as an experimental deviation.
+Leave the variable unset for the default path, and use it only after a clean
+retry reproduces the same failure.
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

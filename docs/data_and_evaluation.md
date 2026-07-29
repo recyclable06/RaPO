@@ -124,6 +124,22 @@ visual_rft/task_02/
 visual_rft/task_10/
 ```
 
+For incremental work, export only the next required stage instead:
+
+```bash
+rapo-build-imagenet-r \
+  /home/zhenglifeng/data/imagenet-r \
+  /home/zhenglifeng/data/imagenet-r/README.txt \
+  /home/zhenglifeng/data/rapo-imagenet-r/order_0 \
+  --class-order-seed 0 \
+  --sample-seed 0 \
+  --export-visual-rft-task 3
+```
+
+`--export-visual-rft-task` may be repeated. The builder still rewrites the
+deterministic manifest, but only the explicitly selected task datasets are
+materialized.
+
 Each task-stage dataset contains:
 
 - `train`: only the current task's 100 training examples;

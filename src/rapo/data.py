@@ -331,7 +331,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--class-order-seed", type=int, default=0)
     parser.add_argument("--sample-seed", type=int, default=0)
     parser.add_argument("--export-visual-rft", action="store_true")
+    parser.add_argument(
+        "--export-visual-rft-task",
+        action="append",
+        type=int,
+        default=[],
+        help="Export only this task stage; repeat the option for multiple stages.",
+    )
     args = parser.parse_args(argv)
+    export_tasks = set(args.export_visual_rft_task)
+    invalid_tasks = sorted(
+        task_index
+        for task_index in export_tasks
+        if task_index < 1 or task_index > args.num_tasks
+    )
+    if invalid_tasks:
+        parser.error(
+            "Visual-RFT export task indices must be between 1 and "
+            f"{args.num_tasks}: {invalid_tasks}"
+        )
+    if args.export_visual_rft:
+        export_tasks.update(range(1, args.num_tasks + 1))
 
     manifest = build_imagenet_r_manifest(
         args.image_root,
@@ -345,15 +365,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest_path = write_manifest(manifest, args.output_directory / "manifest.json")
     print(f"Wrote deterministic split manifest to {manifest_path}")
 
-    if args.export_visual_rft:
-        for task_index in range(1, args.num_tasks + 1):
-            output_path = export_visual_rft_task(
-                manifest,
-                args.image_root,
-                args.output_directory / "visual_rft" / f"task_{task_index:02d}",
-                task_index=task_index,
-            )
-            print(f"Wrote Visual-RFT task {task_index} dataset to {output_path}")
+    for task_index in sorted(export_tasks):
+        output_path = export_visual_rft_task(
+            manifest,
+            args.image_root,
+            args.output_directory / "visual_rft" / f"task_{task_index:02d}",
+            task_index=task_index,
+        )
+        print(f"Wrote Visual-RFT task {task_index} dataset to {output_path}")
     return 0
 
 

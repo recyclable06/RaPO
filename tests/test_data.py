@@ -1,10 +1,13 @@
 import json
+from pathlib import Path
 
 import pytest
 
+import rapo.data
 from rapo.data import (
     build_imagenet_r_manifest,
     load_class_map,
+    main,
     make_classification_prompt,
     visual_rft_rows,
 )
@@ -155,3 +158,37 @@ def test_prompt_matches_closed_set_contract():
     assert "exactly one class name" in prompt
     assert "<think> </think>" in prompt
     assert "<answer> </answer>" in prompt
+
+
+def test_cli_can_export_only_one_visual_rft_task(tmp_path, monkeypatch):
+    image_root, class_map = make_image_tree(tmp_path)
+    class_map_path = tmp_path / "classes.json"
+    class_map_path.write_text(json.dumps(class_map), encoding="utf-8")
+    exported_tasks = []
+
+    def record_export(manifest, image_root, output_directory, *, task_index):
+        exported_tasks.append(task_index)
+        return Path(output_directory)
+
+    monkeypatch.setattr(rapo.data, "export_visual_rft_task", record_export)
+
+    assert (
+        main(
+            [
+                str(image_root),
+                str(class_map_path),
+                str(tmp_path / "output"),
+                "--num-tasks",
+                "2",
+                "--classes-per-task",
+                "2",
+                "--shots-per-class",
+                "1",
+                "--export-visual-rft-task",
+                "2",
+            ]
+        )
+        == 0
+    )
+    assert exported_tasks == [2]
+    assert (tmp_path / "output" / "manifest.json").is_file()

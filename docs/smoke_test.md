@@ -136,8 +136,9 @@ Do not interpret this reduced run's reward or accuracy as a reproduction
 result. Its acceptance criteria are model loading, distributed initialization,
 one optimizer step, checkpoint writing, finite loss, no OOM, and no residual
 GPU process. A nonzero grouped reward standard deviation must also produce a
-nonzero gradient norm; the trainer patch explicitly enables input gradients
-when reentrant gradient checkpointing is active. If the reduced gate passes,
+nonzero gradient norm. The 2080 Ti DeepSpeed configuration starts dynamic FP16
+loss scaling at 4096 because the upstream value of 65536 overflowed and skipped
+the first optimizer step during the initial probe. If the reduced gate passes,
 increase to eight rollouts before using the result to judge the paper-locked
 configuration:
 

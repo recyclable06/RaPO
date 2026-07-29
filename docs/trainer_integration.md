@@ -28,11 +28,6 @@ unchanged. With `rapo_enabled=true`, the trainer:
 5. avoids CTAN updates while the model is in evaluation mode;
 6. writes `rapo_state.json` into Trainer checkpoints and final model output.
 
-When gradient checkpointing is enabled, the patch also marks model input
-embeddings as requiring gradients. This is required by PyTorch's reentrant
-checkpoint implementation; without it, a run can finish with varied rewards
-but a zero gradient norm.
-
 The patch also replaces Visual-RFT's classification substring comparison with
 the paper's exact-match verifier. The final class is extracted from one
 `<answer>` span, lower-cased, and normalized by mapping underscores, hyphens,

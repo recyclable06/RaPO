@@ -160,6 +160,13 @@ fallback instead of cuDNN and must be recorded as an experimental deviation.
 Leave the variable unset for the default path, and use it only after a clean
 retry reproduces the same failure.
 
+If that fallback then causes a dynamic-FP16 optimizer skip at the default
+2,048 initial scale, use
+`configs/deepspeed_zero3_cpu_offload_scale10.json` explicitly for both methods.
+It differs from the default 2080 Ti configuration only by starting at 1,024.
+Do not silently replace the default file or compare methods with different
+loss-scale configurations.
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

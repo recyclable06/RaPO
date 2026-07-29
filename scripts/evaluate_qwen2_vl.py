@@ -32,19 +32,19 @@ def select_rows(dataset: Any, samples_per_class: int) -> list[dict[str, Any]]:
     if samples_per_class < 1:
         raise ValueError("samples_per_class must be positive")
 
-    rows_by_class: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
-    for row in dataset:
+    metadata = dataset.select_columns(["task_index", "wnid", "relative_path"])
+    indices_by_class: dict[tuple[int, str], list[tuple[str, int]]] = defaultdict(list)
+    for index, row in enumerate(metadata):
         key = (int(row["task_index"]), str(row["wnid"]))
-        rows_by_class[key].append(row)
+        indices_by_class[key].append((str(row["relative_path"]), index))
 
-    selected = []
-    for key in sorted(rows_by_class):
-        class_rows = sorted(
-            rows_by_class[key],
-            key=lambda row: str(row["relative_path"]),
+    selected_indices = []
+    for key in sorted(indices_by_class):
+        selected_indices.extend(
+            index
+            for _, index in sorted(indices_by_class[key])[:samples_per_class]
         )
-        selected.extend(class_rows[:samples_per_class])
-    return selected
+    return [dataset[index] for index in selected_indices]
 
 
 def main() -> None:
@@ -133,6 +133,7 @@ def main() -> None:
                     "relative_path": row["relative_path"],
                 }
             )
+        print(f"generated {len(predictions)}/{len(rows)}", flush=True)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary_output = args.output.with_suffix(args.output.suffix + ".tmp")

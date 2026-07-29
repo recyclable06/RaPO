@@ -23,7 +23,7 @@ of scope until the paper reproduction is complete.
 - [x] Build the deterministic ImageNet-R task split and evaluator.
 - [x] Freeze a separate Visual-RFT training environment and GPU smoke runbook.
 - [x] Pass the reduced 8 x RTX 2080 Ti GRPO load, update, save, and reload gates.
-- [ ] Run a reduced two-task GRPO/RaPO experiment.
+- [x] Run a reduced two-task GRPO/RaPO experiment.
 - [ ] Run the full 10-task experiment.
 
 ## Environment
@@ -59,3 +59,5 @@ documented in
 [docs/data_and_evaluation.md](docs/data_and_evaluation.md).
 The first GPU compatibility measurements are recorded in
 [docs/experiments/2026-07-29-2080ti-smoke.md](docs/experiments/2026-07-29-2080ti-smoke.md).
+The first two-task comparison is recorded in
+[docs/experiments/2026-07-29-2080ti-two-task.md](docs/experiments/2026-07-29-2080ti-two-task.md).

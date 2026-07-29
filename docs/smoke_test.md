@@ -137,10 +137,10 @@ result. Its acceptance criteria are model loading, distributed initialization,
 one optimizer step, checkpoint writing, finite loss, no OOM, and no residual
 GPU process. A nonzero grouped reward standard deviation must also produce a
 nonzero gradient norm. The 2080 Ti DeepSpeed configuration starts dynamic FP16
-loss scaling at 4096 because the upstream value of 65536 overflowed and skipped
-the first optimizer step during the initial probe. If the reduced gate passes,
-increase to eight rollouts before using the result to judge the paper-locked
-configuration:
+loss scaling at 2048. The upstream value of 65536 skipped the first optimizer
+step, while 4096 passed the two-rollout gate but intermittently skipped updates
+in the five-step, eight-rollout gate. If the reduced gate passes, increase to
+eight rollouts before using the result to judge the paper-locked configuration:
 
 ```bash
 RAPO_SMOKE_NUM_GENERATIONS=8 \

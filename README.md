@@ -25,6 +25,7 @@ of scope until the paper reproduction is complete.
 - [x] Pass the reduced 8 x RTX 2080 Ti GRPO load, update, save, and reload gates.
 - [x] Run a reduced two-task GRPO/RaPO experiment.
 - [x] Extend the bounded comparison through task 3 with 20 samples per class.
+- [x] Extend the bounded comparison through task 4 and audit the resulting gap.
 - [ ] Run the full 10-task experiment.
 
 ## Environment
@@ -66,3 +67,5 @@ The extended 20-step comparison is recorded in
 [docs/experiments/2026-07-29-2080ti-two-task-step20.md](docs/experiments/2026-07-29-2080ti-two-task-step20.md).
 The three-task continuation is recorded in
 [docs/experiments/2026-07-29-2080ti-three-task-step20.md](docs/experiments/2026-07-29-2080ti-three-task-step20.md).
+The four-task continuation and paired-result audit are recorded in
+[docs/experiments/2026-07-30-2080ti-four-task-step20.md](docs/experiments/2026-07-30-2080ti-four-task-step20.md).

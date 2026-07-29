@@ -61,3 +61,5 @@ The first GPU compatibility measurements are recorded in
 [docs/experiments/2026-07-29-2080ti-smoke.md](docs/experiments/2026-07-29-2080ti-smoke.md).
 The first two-task comparison is recorded in
 [docs/experiments/2026-07-29-2080ti-two-task.md](docs/experiments/2026-07-29-2080ti-two-task.md).
+The extended 20-step comparison is recorded in
+[docs/experiments/2026-07-29-2080ti-two-task-step20.md](docs/experiments/2026-07-29-2080ti-two-task-step20.md).

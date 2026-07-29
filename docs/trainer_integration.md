@@ -38,6 +38,12 @@ the paper's exact-match verifier. The final class is extracted from one
 and periods to spaces. A label such as `cat` therefore no longer receives a
 false positive for `catfish`.
 
+Dataset conversation preprocessing runs inside
+`training_args.main_process_first`. On a distributed launch, rank 0 therefore
+writes the Hugging Face `map` cache before the other ranks load it. This avoids
+concurrent cache-file creation on shared filesystems without changing the
+mapped examples.
+
 ## Required task sequencing
 
 Task 1 starts from `Qwen/Qwen2-VL-2B-Instruct` and does not pass a RaPO state

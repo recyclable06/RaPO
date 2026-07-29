@@ -1,8 +1,8 @@
 diff --git a/src/virft/src/open_r1/grpo_classification.py b/src/virft/src/open_r1/grpo_classification.py
-index 6e6fdec..b2d017e 100644
+index 6e6fdec..493e21f 100644
 --- a/src/virft/src/open_r1/grpo_classification.py
 +++ b/src/virft/src/open_r1/grpo_classification.py
-@@ -15,7 +15,8 @@
+@@ -15,15 +15,17 @@
  import os
  import re
  from datetime import datetime
@@ -12,7 +12,8 @@ index 6e6fdec..b2d017e 100644
  from typing import Optional
  
  from datasets import load_dataset, load_from_disk
-@@ -24,6 +25,7 @@ from transformers import Qwen2VLForConditionalGeneration
+ from transformers import Qwen2VLForConditionalGeneration
+ 
 -from math_verify import parse, verify
  # from open_r1.trainer import Qwen2VLGRPOTrainer
  from open_r1.trainer import Qwen2VLGRPOTrainer, Qwen2VLGRPOVLLMTrainer
@@ -21,8 +22,7 @@ index 6e6fdec..b2d017e 100644
  from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
  
  import json
-@@ -54,41 +55,13 @@ class GRPOScriptArguments(ScriptArguments):
-     )
+@@ -53,40 +55,12 @@ class GRPOScriptArguments(ScriptArguments):
  
  
  def accuracy_reward(completions, solution, **kwargs):
@@ -65,7 +65,7 @@ index 6e6fdec..b2d017e 100644
          rewards.append(reward)
          # import pdb; pdb.set_trace()
          if os.getenv("DEBUG_MODE") == "true":
-@@ -119,7 +121,7 @@ SYSTEM_PROMPT = (
+@@ -119,7 +93,7 @@ SYSTEM_PROMPT = (
  )
  
  
@@ -74,8 +74,28 @@ index 6e6fdec..b2d017e 100644
      # Get reward functions
      # import pdb; pdb.set_trace()
      script_args.reward_funcs = ['accuracy','format']
-@@ -167,12 +169,26 @@ def main(script_args, training_args, model_args):
-         dataset = dataset.remove_columns("messages")
+@@ -156,23 +130,38 @@ def main(script_args, training_args, model_args):
+         }
+ 
+ 
+-    if "image" in dataset[script_args.dataset_train_split].features:
+-        print("has image in dataset")
+-        dataset = dataset.map(make_conversation_image)  # Utilize multiprocessing for faster mapping
+-        # dataset = dataset.remove_columns(["original_question", "original_answer"])
++    with training_args.main_process_first(desc="dataset map pre-processing"):
++        if "image" in dataset[script_args.dataset_train_split].features:
++            print("has image in dataset")
++            dataset = dataset.map(make_conversation_image)  # Utilize multiprocessing for faster mapping
++            # dataset = dataset.remove_columns(["original_question", "original_answer"])
+ 
+-    else:
+-        print("no image in dataset")
+-        dataset = dataset.map(make_conversation)
+-        dataset = dataset.remove_columns("messages")
++        else:
++            print("no image in dataset")
++            dataset = dataset.map(make_conversation)
++            dataset = dataset.remove_columns("messages")
  
      
 +    if rapo_args.rapo_enabled and training_args.use_vllm:
@@ -102,7 +122,7 @@ index 6e6fdec..b2d017e 100644
          model=model_args.model_name_or_path,
          reward_funcs=reward_funcs,
          args=training_args,
-@@ -183,9 +199,15 @@ def main(script_args, training_args, model_args):
+@@ -183,9 +172,15 @@ def main(script_args, training_args, model_args):
          max_pixels=script_args.max_pixels,
          min_pixels=script_args.min_pixels,
      )
@@ -119,7 +139,7 @@ index 6e6fdec..b2d017e 100644
  
      # Save and push to hub
      trainer.save_model(training_args.output_dir)
-@@ -194,6 +213,6 @@ def main(script_args, training_args, model_args):
+@@ -194,6 +189,6 @@ def main(script_args, training_args, model_args):
  
  
  if __name__ == "__main__":

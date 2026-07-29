@@ -148,6 +148,11 @@ RAPO_SMOKE_MAX_COMPLETION_LENGTH=64 \
   bash scripts/run_imagenet_r_2080ti_smoke.sh grpo 1 1
 ```
 
+For a short multi-step stability check that does not need to be resumed, set
+`RAPO_SMOKE_SAVE_STRATEGY=no`. This skips the large ZeRO optimizer checkpoint;
+the Visual-RFT entrypoint still writes the final model. Keep the default
+`steps` strategy for any run whose optimizer state must be resumed or audited.
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

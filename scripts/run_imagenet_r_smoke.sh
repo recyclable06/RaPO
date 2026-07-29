@@ -21,6 +21,7 @@ gradient_checkpointing="${RAPO_SMOKE_GRADIENT_CHECKPOINTING:-false}"
 max_pixels="${RAPO_SMOKE_MAX_PIXELS:-401408}"
 min_pixels="${RAPO_SMOKE_MIN_PIXELS:-3136}"
 num_generations="${RAPO_SMOKE_NUM_GENERATIONS:-8}"
+save_strategy="${RAPO_SMOKE_SAVE_STRATEGY:-steps}"
 
 required_variables=(
     GPU_IDS
@@ -64,6 +65,10 @@ if [[ "${attn_implementation}" != "flash_attention_2" &&
 fi
 if [[ "${gradient_checkpointing}" != "true" && "${gradient_checkpointing}" != "false" ]]; then
     echo "RAPO_SMOKE_GRADIENT_CHECKPOINTING must be true or false." >&2
+    exit 2
+fi
+if [[ "${save_strategy}" != "steps" && "${save_strategy}" != "no" ]]; then
+    echo "RAPO_SMOKE_SAVE_STRATEGY must be either steps or no." >&2
     exit 2
 fi
 for value_name in \
@@ -146,6 +151,10 @@ precision_arguments=(--bf16 false --fp16 true)
 if [[ "${precision}" == "bf16" ]]; then
     precision_arguments=(--bf16 true --fp16 false)
 fi
+save_arguments=(--save_strategy "${save_strategy}")
+if [[ "${save_strategy}" == "steps" ]]; then
+    save_arguments+=(--save_steps "${max_steps}")
+fi
 
 export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
 export PYTHONPATH="${repo_root}/src:${VISUAL_RFT_ROOT}/src/virft/src${PYTHONPATH:+:${PYTHONPATH}}"
@@ -187,7 +196,7 @@ echo "Smoke settings: precision=${precision}, attention=${attn_implementation}, 
     --max_pixels "${max_pixels}" \
     --min_pixels "${min_pixels}" \
     --max_steps "${max_steps}" \
-    --save_steps "${max_steps}" \
+    "${save_arguments[@]}" \
     --num_generations "${num_generations}" \
     --seed 0 \
     --data_seed 0 \

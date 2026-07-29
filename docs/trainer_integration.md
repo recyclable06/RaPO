@@ -28,6 +28,10 @@ unchanged. With `rapo_enabled=true`, the trainer:
 5. avoids CTAN updates while the model is in evaluation mode;
 6. writes `rapo_state.json` into Trainer checkpoints and final model output.
 
+Model-family dispatch reads `AutoConfig.model_type` from the checkpoint rather
+than guessing from the directory name. This is required for task 2+, because a
+saved task directory need not contain `Qwen2-VL` in its path.
+
 The patch also replaces Visual-RFT's classification substring comparison with
 the paper's exact-match verifier. The final class is extracted from one
 `<answer>` span, lower-cased, and normalized by mapping underscores, hyphens,

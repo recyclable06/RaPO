@@ -130,7 +130,7 @@ index 6e6fdec..b2d017e 100644
 +    script_args, training_args, model_args, rapo_args = parser.parse_args_and_config()
 +    main(script_args, training_args, model_args, rapo_args)
 diff --git a/src/virft/src/open_r1/trainer/grpo_trainer.py b/src/virft/src/open_r1/trainer/grpo_trainer.py
-index b35f8ba..1d7ef98 100644
+index b35f8ba..ef27a6c 100644
 --- a/src/virft/src/open_r1/trainer/grpo_trainer.py
 +++ b/src/virft/src/open_r1/trainer/grpo_trainer.py
 @@ -15,6 +15,7 @@
@@ -141,6 +141,15 @@ index b35f8ba..1d7ef98 100644
  from typing import Any, Callable, Optional, Union
  
  import torch
+@@ -24,7 +25,8 @@ from datasets import Dataset, IterableDataset
+ from packaging import version
+ from transformers import (
+     AriaForConditionalGeneration,
+     AriaProcessor,
++    AutoConfig,
+     AutoModelForCausalLM,
+     AutoModelForSequenceClassification,
+     AutoProcessor,
 @@ -39,8 +40,14 @@ from transformers import (
      is_wandb_available,
  )
@@ -194,6 +203,64 @@ index b35f8ba..1d7ef98 100644
          # Args
          if args is None:
              model_name = model if isinstance(model, str) else model.config._name_or_path
+@@ -186,18 +217,20 @@ class Qwen2VLGRPOTrainer(Trainer):
+             # Disable caching if gradient checkpointing is enabled (not supported)
+             model_init_kwargs["use_cache"] = (
+                 False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
+             )
+-            if "Qwen2-VL" in model_id:
++            model_type = AutoConfig.from_pretrained(model_id).model_type
++            if model_type == "qwen2_vl":
+                 model = Qwen2VLForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
+-            elif "Qwen2.5-VL" in model_id:
++            elif model_type == "qwen2_5_vl":
+                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
+-            elif "Aria" in model_id:
++            elif model_type == "aria":
+                 model_init_kwargs.pop("use_cache")
+                 model = AriaForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
+             else:
+                 model = AutoModelForCausalLM.from_pretrained(model, **model_init_kwargs)
+         else:
+             model_id = model.config._name_or_path
++            model_type = model.config.model_type
+             if args.model_init_kwargs is not None:
+                 raise ValueError(
+                     "You passed `model_init_kwargs` to the `GRPOConfig`, but your model is already instantiated. "
+@@ -208,13 +241,13 @@ class Qwen2VLGRPOTrainer(Trainer):
+             model = get_peft_model(model, peft_config)
+ 
+         # Reference model
+         if is_deepspeed_zero3_enabled():
+-            if "Qwen2-VL" in model_id:
++            if model_type == "qwen2_vl":
+                 self.ref_model = Qwen2VLForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
+-            elif "Qwen2.5-VL" in model_id:
++            elif model_type == "qwen2_5_vl":
+                 self.ref_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
+-            elif "Aria" in model_id:
++            elif model_type == "aria":
+                 self.ref_model = AriaForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
+             else:
+                 self.ref_model = AutoModelForCausalLM.from_pretrained(model_id, **model_init_kwargs)
+         elif peft_config is None:
+@@ -226,14 +259,14 @@ class Qwen2VLGRPOTrainer(Trainer):
+             self.ref_model = None
+ 
+         # Processing class
+         if processing_class is None:
+-            if "Qwen2-VL" in model_id or "Qwen2.5-VL" in model_id or "Aria" in model_id:
++            if model_type in {"qwen2_vl", "qwen2_5_vl", "aria"}:
+                 processing_class = AutoProcessor.from_pretrained(model_id)
+                 pad_token_id = processing_class.tokenizer.pad_token_id
+                 processing_class.pad_token_id = pad_token_id
+                 processing_class.eos_token_id = processing_class.tokenizer.eos_token_id
+-                if "Qwen" in model_id or "Qwen2.5-VL" in model_id:
++                if model_type in {"qwen2_vl", "qwen2_5_vl"}:
+                     processing_class.image_processor.max_pixels = max_pixels
+                     processing_class.image_processor.min_pixels = min_pixels
+             else:
+                 processing_class = AutoTokenizer.from_pretrained(model.config._name_or_path, padding_side="left")
 @@ -450,16 +480,35 @@ class Qwen2VLGRPOTrainer(Trainer):
                  rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
  

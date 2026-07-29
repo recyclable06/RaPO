@@ -74,3 +74,6 @@ The four-task continuation and paired-result audit are recorded in
 The five-task continuation, compatibility investigation, and audit trigger are
 recorded in
 [docs/experiments/2026-07-30-2080ti-five-task-step20.md](docs/experiments/2026-07-30-2080ti-five-task-step20.md).
+The resulting equation-to-trainer audit and task-6 continuation gate are
+recorded in
+[docs/experiments/2026-07-30-five-task-implementation-audit.md](docs/experiments/2026-07-30-five-task-implementation-audit.md).

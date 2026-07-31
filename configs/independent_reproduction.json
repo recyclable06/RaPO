@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "claim_scope": "independent_reproduction",
+  "ctan": {
+    "batch_scope": "gradient_accumulation_window_all_ranks_all_microbatches",
+    "standard_deviation": "sample",
+    "correction": 1,
+    "initialization": "first_successful_optimizer_step",
+    "provisional_scale": "current_window_prefix",
+    "commit_clock": "successful_optimizer_step_once",
+    "skipped_step": "discard"
+  },
+  "surrogate": {
+    "rollout_reuse": 1,
+    "clipping": null,
+    "form": "unclipped_sampling_point"
+  },
+  "kl": {
+    "beta": 0.04,
+    "provenance": "repository_choice_not_author_setting"
+  }
+}

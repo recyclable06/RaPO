@@ -6,11 +6,14 @@ import pytest
 import rapo.data
 from rapo.data import (
     build_imagenet_r_manifest,
+    export_visual_rft_task,
     load_class_map,
     main,
     make_classification_prompt,
     visual_rft_rows,
+    write_manifest,
 )
+from rapo.provenance import validate_stage_binding, write_stage_binding
 
 
 def make_image_tree(tmp_path):
@@ -192,3 +195,31 @@ def test_cli_can_export_only_one_visual_rft_task(tmp_path, monkeypatch):
     )
     assert exported_tasks == [2]
     assert (tmp_path / "output" / "manifest.json").is_file()
+
+
+def test_existing_different_manifest_is_rejected(tmp_path):
+    path = tmp_path / "manifest.json"
+    write_manifest({"seed": 0}, path)
+
+    with pytest.raises(ValueError, match="different manifest"):
+        write_manifest({"seed": 1}, path)
+
+
+def test_stage_binding_rejects_changed_seed_or_split(tmp_path):
+    stage = tmp_path / "task_01"
+    stage.mkdir()
+    original = {"tasks": [{"task_index": 1}], "protocol": {"sample_seed": 0}}
+    changed = {"tasks": [{"task_index": 1}], "protocol": {"sample_seed": 1}}
+    write_stage_binding(stage, original, 1)
+
+    with pytest.raises(ValueError, match="binding does not match"):
+        validate_stage_binding(stage, changed, 1)
+
+
+def test_existing_unbound_stage_is_rejected_before_reexport(tmp_path):
+    stage = tmp_path / "task_01"
+    stage.mkdir()
+    manifest = {"tasks": [{"task_index": 1}]}
+
+    with pytest.raises(ValueError, match="missing rapo_stage_manifest"):
+        export_visual_rft_task(manifest, tmp_path, stage, task_index=1)

@@ -24,9 +24,19 @@ unchanged. With `rapo_enabled=true`, the trainer:
 1. uses CTAN for every task;
 2. adds Retention Reward from task 2 onward;
 3. treats the frozen GRPO reference model as the previous-task anchor;
-4. computes CTAN batch standard deviation from rewards gathered across ranks;
-5. avoids CTAN updates while the model is in evaluation mode;
-6. writes `rapo_state.json` into Trainer checkpoints and final model output.
+4. stages rewards from every rank and microbatch in one gradient-accumulation
+   window and uses sample standard deviation (`correction=1`);
+5. commits CTAN once from the complete window after a successful optimizer
+   step, discards skipped steps, and never stages evaluation rewards;
+6. rejects a tokenized multimodal prompt above `max_prompt_length` before
+   generation instead of truncating an unproved visual-token boundary;
+7. writes task, run ID, immutable run-contract SHA, and CTAN state into
+   `rapo_state.json` at checkpoints and final model output.
+
+These CTAN scope, first-success initialization, single-use unclipped surrogate,
+and KL `beta=0.04` choices are frozen in
+`configs/independent_reproduction.json`. They are repository decisions for an
+independent reproduction, not paper facts or author settings.
 
 Model-family dispatch reads `AutoConfig.model_type` from the checkpoint rather
 than guessing from the directory name. This is required for task 2+, because a
@@ -47,10 +57,11 @@ mapped examples.
 ## Required task sequencing
 
 Task 1 starts from `Qwen/Qwen2-VL-2B-Instruct` and does not pass a RaPO state
-file. Task `t >= 2` must:
+or parent manifest. Task `t >= 2` must:
 
 - start `model_name_or_path` from the final checkpoint of task `t-1`;
 - pass the previous task's `rapo_state.json` through `rapo_state_path`;
+- pass the finalized task `t-1` run manifest through `PARENT_MANIFEST_PATH`;
 - keep the paper-locked RaPO settings unchanged.
 
 Example RaPO flags for task 2:
@@ -63,12 +74,25 @@ rapo_retention_weight: 0.5
 rapo_ctan_beta: 0.999
 rapo_ctan_epsilon: 0.0001
 rapo_state_path: outputs/task_01/rapo_state.json
+rapo_run_id: order0-rapo-task02
+rapo_contract_sha256: <printed by provenance prepare-run>
 rapo_resume_from_checkpoint: null
 ```
 
-When `rapo_resume_from_checkpoint` is set and `rapo_state_path` is unset, the
-patched classification entrypoint loads
-`<checkpoint>/rapo_state.json` automatically.
+Batch 1 validates cross-task state continuity only: a task accepts state from
+exactly `t-1`. Same-task interrupted/resumed equivalence remains a later batch
+and must not be claimed from the legacy `rapo_resume_from_checkpoint` field.
+
+## Run-manifest gate
+
+The launcher requires `RUN_MANIFEST_PATH`, `EXPERIMENT_ID`, `RUN_ID`, and
+`DATA_MANIFEST_PATH`; task 2+ also requires `PARENT_MANIFEST_PATH`. Before
+`torchrun`, it invokes `python -m rapo.provenance prepare-run` to verify the
+repository and diff, fixed Visual-RFT commit and exact patch, input model,
+RaPO input state, data manifest, task-stage dataset, reproduction config, and
+parent chain. The prepared contract is immutable. After model/state saving,
+`finalize-run` binds their actual SHA256 identities. A retry may reuse only
+identical manifest content.
 
 ## Deliberate compatibility limits
 

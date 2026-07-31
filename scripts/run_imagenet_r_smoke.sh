@@ -29,6 +29,10 @@ required_variables=(
     MODEL_PATH
     DATASET_PATH
     OUTPUT_DIR
+    RUN_MANIFEST_PATH
+    EXPERIMENT_ID
+    RUN_ID
+    DATA_MANIFEST_PATH
 )
 for variable_name in "${required_variables[@]}"; do
     if [[ -z "${!variable_name:-}" ]]; then
@@ -43,6 +47,15 @@ if [[ "${method}" != "grpo" && "${method}" != "rapo" ]]; then
 fi
 if [[ ! "${task_index}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Task index must be a positive integer." >&2
+    exit 2
+fi
+if (( task_index == 1 )); then
+    if [[ -n "${PARENT_MANIFEST_PATH:-}" || -n "${RAPO_STATE_PATH:-}" ]]; then
+        echo "Task 1 forbids PARENT_MANIFEST_PATH and RAPO_STATE_PATH." >&2
+        exit 2
+    fi
+elif [[ -z "${PARENT_MANIFEST_PATH:-}" || ! -f "${PARENT_MANIFEST_PATH}" ]]; then
+    echo "Task ${task_index} requires a finalized PARENT_MANIFEST_PATH." >&2
     exit 2
 fi
 if [[ ! "${max_steps}" =~ ^[1-9][0-9]*$ ]]; then
@@ -96,6 +109,10 @@ if [[ ! -d "${DATASET_PATH}" ]]; then
     echo "Dataset directory not found: ${DATASET_PATH}" >&2
     exit 1
 fi
+if [[ ! -f "${DATA_MANIFEST_PATH}" ]]; then
+    echo "Data manifest not found: ${DATA_MANIFEST_PATH}" >&2
+    exit 1
+fi
 if [[ -e "${OUTPUT_DIR}" && ! -d "${OUTPUT_DIR}" ]]; then
     echo "OUTPUT_DIR exists and is not a directory: ${OUTPUT_DIR}" >&2
     exit 1
@@ -123,6 +140,39 @@ if ! grep -q "classification_answer_is_correct" "${entrypoint}" ||
     echo "The RaPO patch is not present in the pinned Visual-RFT checkout." >&2
     exit 1
 fi
+patch_file="${repo_root}/patches/visual_rft_2ffad63_rapo.patch"
+patched_files="$(git -C "${VISUAL_RFT_ROOT}" diff --name-only)"
+expected_patched_files=$'src/virft/src/open_r1/grpo_classification.py\nsrc/virft/src/open_r1/trainer/grpo_trainer.py'
+if [[ "${patched_files}" != "${expected_patched_files}" ]] ||
+    ! git -C "${VISUAL_RFT_ROOT}" apply --reverse --check "${patch_file}"; then
+    echo "Visual-RFT worktree does not exactly match the pinned RaPO patch." >&2
+    exit 1
+fi
+
+reproduction_config="${RAPO_REPRODUCTION_CONFIG:-${repo_root}/configs/independent_reproduction.json}"
+if [[ ! -f "${reproduction_config}" ]]; then
+    echo "Independent reproduction config not found: ${reproduction_config}" >&2
+    exit 1
+fi
+
+provenance_arguments=(
+    --manifest "${RUN_MANIFEST_PATH}"
+    --experiment-id "${EXPERIMENT_ID}"
+    --run-id "${RUN_ID}"
+    --method "${method}"
+    --task-index "${task_index}"
+    --repo-root "${repo_root}"
+    --upstream-root "${VISUAL_RFT_ROOT}"
+    --patch "${patch_file}"
+    --input-model "${MODEL_PATH}"
+    --output-model "${OUTPUT_DIR}"
+    --data-manifest "${DATA_MANIFEST_PATH}"
+    --stage-dataset "${DATASET_PATH}"
+    --reproduction-config "${reproduction_config}"
+)
+if (( task_index >= 2 )); then
+    provenance_arguments+=(--parent-manifest "${PARENT_MANIFEST_PATH}")
+fi
 
 rapo_arguments=(--rapo_enabled false)
 if [[ "${method}" == "rapo" ]]; then
@@ -139,6 +189,7 @@ if [[ "${method}" == "rapo" ]]; then
             echo "Task ${task_index} RaPO requires RAPO_STATE_PATH from the previous task." >&2
             exit 2
         fi
+        provenance_arguments+=(--input-state "${RAPO_STATE_PATH}")
         rapo_arguments+=(--rapo_state_path "${RAPO_STATE_PATH}")
     fi
 fi
@@ -146,6 +197,21 @@ fi
 IFS=',' read -r -a gpu_id_array <<< "${GPU_IDS}"
 nproc_per_node="${#gpu_id_array[@]}"
 mkdir -p "$(dirname "${OUTPUT_DIR}")"
+
+contract_sha256="$(
+    "${conda_exe}" run --no-capture-output --name "${env_name}" \
+        python -m rapo.provenance prepare-run "${provenance_arguments[@]}"
+)"
+if [[ ! "${contract_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Run-manifest preparation did not return a canonical contract SHA256." >&2
+    exit 1
+fi
+if [[ "${method}" == "rapo" ]]; then
+    rapo_arguments+=(
+        --rapo_run_id "${RUN_ID}"
+        --rapo_contract_sha256 "${contract_sha256}"
+    )
+fi
 
 precision_arguments=(--bf16 false --fp16 true)
 if [[ "${precision}" == "bf16" ]]; then
@@ -201,3 +267,13 @@ echo "Smoke settings: precision=${precision}, attention=${attn_implementation}, 
     --seed 0 \
     --data_seed 0 \
     "${rapo_arguments[@]}"
+
+finalize_arguments=(
+    --manifest "${RUN_MANIFEST_PATH}"
+    --output-model "${OUTPUT_DIR}"
+)
+if [[ "${method}" == "rapo" ]]; then
+    finalize_arguments+=(--output-state "${OUTPUT_DIR}/rapo_state.json")
+fi
+"${conda_exe}" run --no-capture-output --name "${env_name}" \
+    python -m rapo.provenance finalize-run "${finalize_arguments[@]}"

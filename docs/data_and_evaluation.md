@@ -136,14 +136,21 @@ rapo-build-imagenet-r \
   --export-visual-rft-task 3
 ```
 
-`--export-visual-rft-task` may be repeated. The builder still rewrites the
-deterministic manifest, but only the explicitly selected task datasets are
-materialized.
+`--export-visual-rft-task` may be repeated. The builder accepts an existing
+top-level manifest only when its parsed content is identical; changed seeds,
+splits, or task definitions fail fast instead of overwriting it. Only the
+explicitly selected task datasets are materialized.
 
 Each task-stage dataset contains:
 
 - `train`: only the current task's 100 training examples;
 - `test`: all test examples from tasks observed so far.
+
+Every exported stage also contains `rapo_stage_manifest.json`, which binds the
+stage task index to the canonical SHA256 of the top-level data manifest. A
+re-export first validates this sidecar. A legacy stage without the binding, or
+a stage produced from another seed/split manifest, is rejected rather than
+silently reused or overwritten.
 
 Each test row retains its originating `task_index`, which is used to group
 predictions into the lower-triangular accuracy matrix. All rows at stage `T`

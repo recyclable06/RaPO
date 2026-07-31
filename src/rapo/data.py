@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from rapo.evaluation import normalize_class_name
+from rapo.provenance import (
+    validate_stage_binding,
+    write_json_if_absent_or_equal,
+    write_stage_binding,
+)
 
 
 SCHEMA_VERSION = 1
@@ -262,6 +267,11 @@ def export_visual_rft_task(
 ) -> Path:
     """Save one task stage as the DatasetDict consumed by Visual-RFT."""
 
+    output_path = Path(output_directory)
+    if output_path.exists():
+        validate_stage_binding(output_path, manifest, task_index)
+        return output_path
+
     try:
         import datasets
     except ModuleNotFoundError as exc:
@@ -303,19 +313,13 @@ def export_visual_rft_task(
             for split_name, rows in split_rows.items()
         }
     )
-    output_path = Path(output_directory)
     dataset_dict.save_to_disk(str(output_path))
+    write_stage_binding(output_path, manifest, task_index)
     return output_path
 
 
 def write_manifest(manifest: Mapping[str, Any], path: str | Path) -> Path:
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    return output_path
+    return write_json_if_absent_or_equal(manifest, path)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

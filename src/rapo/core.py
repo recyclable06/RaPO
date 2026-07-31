@@ -59,6 +59,22 @@ def combine_rewards(task_reward: Tensor, retention: Tensor, weight: float = 0.5)
     return task_reward + weight * retention
 
 
+def sampling_point_surrogate(token_logps: Tensor, advantages: Tensor) -> Tensor:
+    """Return the single-use unclipped surrogate at the rollout sampling point."""
+
+    if token_logps.ndim != 2:
+        raise ValueError("token_logps must have shape [batch, sequence]")
+    if advantages.ndim != 1 or advantages.shape[0] != token_logps.shape[0]:
+        raise ValueError("advantages must have one value per trajectory")
+    return torch.exp(token_logps - token_logps.detach()) * advantages.unsqueeze(1)
+
+
+def sample_standard_deviation(values: Tensor) -> Tensor:
+    """Return sample standard deviation (Bessel correction 1)."""
+
+    return values.detach().float().std(unbiased=True)
+
+
 @dataclass
 class CrossTaskAdvantageNormalizer:
     """Persistent reward-standard-deviation EMA used by CTAN.
@@ -105,6 +121,20 @@ class CrossTaskAdvantageNormalizer:
         self.updates += 1
         return self.ema_std
 
+    def provisional_scale(self, batch_std: Tensor | float) -> float:
+        """Return the EMA implied by a batch without mutating persistent state."""
+
+        if isinstance(batch_std, Tensor):
+            if batch_std.numel() != 1:
+                raise ValueError("batch_std must be a scalar")
+            value = float(batch_std.detach().cpu().item())
+        else:
+            value = float(batch_std)
+        self._validate_std(value)
+        if self.ema_std is None:
+            return value
+        return self.beta * self.ema_std + (1 - self.beta) * value
+
     def advantages(
         self,
         total_rewards: Tensor,
@@ -112,6 +142,7 @@ class CrossTaskAdvantageNormalizer:
         batch_std: Tensor | float | None = None,
         *,
         update: bool = True,
+        scale_override: Tensor | float | None = None,
     ) -> Tensor:
         """Compute Equation (6) and update CTAN from the current reward batch.
 
@@ -130,9 +161,19 @@ class CrossTaskAdvantageNormalizer:
         grouped_rewards = total_rewards.view(-1, num_generations)
         group_means = grouped_rewards.mean(dim=1).repeat_interleave(num_generations)
         if batch_std is None:
-            batch_std = total_rewards.detach().float().std(correction=1)
+            batch_std = sample_standard_deviation(total_rewards)
 
-        if update:
+        if scale_override is not None:
+            if update:
+                raise ValueError("scale_override cannot be combined with update=True")
+            if isinstance(scale_override, Tensor):
+                if scale_override.numel() != 1:
+                    raise ValueError("scale_override must be a scalar")
+                scale = float(scale_override.detach().cpu().item())
+            else:
+                scale = float(scale_override)
+            self._validate_std(scale)
+        elif update:
             scale = self.update(batch_std)
         else:
             if isinstance(batch_std, Tensor):

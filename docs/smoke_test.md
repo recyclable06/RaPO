@@ -174,6 +174,14 @@ The explicit next fallback is
 both compared methods from the same preceding-task models with this file; do
 not pair a completed scale-1,024 result with a scale-512 counterpart.
 
+The bounded task-6 experiment showed that scale 1,024 versus 512 can materially
+change the RaPO retention result even when both runs complete. Scale 512 is
+therefore only a 2080 Ti compatibility fallback, not a paper-result setting.
+If the paired methods diverge substantially at this boundary, pause the
+continual chain and run a paired BF16 stability gate on a homogeneous 8-GPU
+group before starting another task. Preserve world size and rollout grouping
+when changing hardware.
+
 ## Launch sequence
 
 The following paths use the already exported order-0 datasets.

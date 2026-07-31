@@ -28,6 +28,9 @@ of scope until the paper reproduction is complete.
 - [x] Extend the bounded comparison through task 4 and audit the resulting gap.
 - [x] Extend the bounded comparison through task 5 and trigger the focused
       implementation audit.
+- [x] Complete the bounded task-6 comparison and isolate the FP16 loss-scale
+      sensitivity from inference-hardware effects.
+- [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
 ## Environment
@@ -77,3 +80,6 @@ recorded in
 The resulting equation-to-trainer audit and task-6 continuation gate are
 recorded in
 [docs/experiments/2026-07-30-five-task-implementation-audit.md](docs/experiments/2026-07-30-five-task-implementation-audit.md).
+The completed task-6 comparison, numerical-stability boundary, and explicit
+pause/resume point are recorded in
+[docs/experiments/2026-07-31-2080ti-six-task-stability-boundary.md](docs/experiments/2026-07-31-2080ti-six-task-stability-boundary.md).

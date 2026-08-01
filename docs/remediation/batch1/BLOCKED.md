@@ -4,9 +4,16 @@
 
 无。
 
-The manifest self-hash repair has no current implementation blocker. Its CPU
-self-tests are not independent acceptance, GPU-readiness, or formal-training
-evidence.
+Batch 1 has passed independent technical acceptance for its local CPU scope at
+`655f88269ed75c0bcab3844a4412313f9342239d`. This is not GPU readiness,
+formal-training evidence, or completion of the paper reproduction.
+
+## Historical implementation and setup records
+
+The manifest self-hash repair had no implementation blocker at delivery. Its
+executor CPU self-tests remain executor evidence; the later independent verdict
+is recorded separately in `PROGRESS.md` and does not retroactively promote the
+old logs.
 
 Two fixed-patch setup attempts failed before a successful apply: `/c/...` was
 not a valid path for the installed WSL `bash`, and a Windows-created checkout
@@ -62,7 +69,7 @@ command timed out after 1804058 milliseconds
 ## Impact
 
 - The three timed-out parent commands initially left the environment status uncertain. A later direct inspection proved that `torch==2.5.1+cpu` had completed installation, after which pytest and the editable local package installed successfully.
-- Final CPU acceptance collected and passed 65 tests with zero skips. CUDA build/availability remain absent by design for this no-GPU batch.
+- The executor CPU self-test eventually collected and passed 65 tests with zero skips. CUDA build/availability remained absent by design for that no-GPU execution batch.
 
 ## Resolved during the batch
 
@@ -73,3 +80,14 @@ command timed out after 1804058 milliseconds
 
 - Public GitHub clone was attempted as required by task 0 and failed before checkout.
 - Temporary clone, diagnostic, worktree, and reverse-validation paths were not deleted because the task does not authorize cleanup.
+
+## Independent acceptance setup observations
+
+These are historical setup observations, not current code blockers. Direct
+network acquisition during independent acceptance encountered bounded timeout
+and TLS/early-EOF failures, and WSL `/tmp` did not persist across stopped
+instances. Acceptance therefore created a new clean checkout from a verified
+local Git object source with the official Visual-RFT origin and pinned commit,
+then completed apply, diff, allowlist, and reverse-check in one WSL lifecycle.
+No failed path was reused as the accepted checkout, and no temporary path is a
+permanent acceptance artifact.

@@ -1,5 +1,9 @@
 # RaPO 论文复现工程当前 Handoff
 
+> **历史快照边界（2026-08-01）：** 本文保留 2026-07-31 handoff 的事实、失败记录和当时的下一步，不再作为现役状态入口。当前检查点以仓库根 `AGENTS.md`、`docs/audit/2026-07-31-independent-audit.md` 和对应 `docs/remediation/batch*/` 为准。本文中的旧命令输出和实验记录在新角色未现场重跑时只能按 `recorded-but-not-rerun` 使用，不得改写成当前现场结果。
+>
+> 批次 1 后续已完成独立 CPU 验收，但这不代表 GPU-ready、训练重跑、论文级完整复现通过或正式实验放行。历史临时路径也不构成永久 artifact。
+
 > 快照日期：2026-07-31<br>
 > 文档状态：事实型 handoff<br>
 > 当前分支：`main`<br>

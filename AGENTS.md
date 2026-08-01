@@ -88,11 +88,14 @@
 ## 当前检查点（2026-08-01）
 
 - 独立审查已提交：`42b1a14`；报告结论是不具备论文级实验放行条件。
-- 整改批次 1 提交：`907345e`；历史公开测试记录为 65 passed、0 skipped，compile/diff/固定上游 patch apply 通过；在独立验收重跑前均按 `recorded-but-not-rerun` 管理。
-- 原咨询 Codex执行的批次 1 验收已降级为**非独立前置诊断**，不具正式验收效力；其发现的 manifest 自哈希闭环缺陷继续有效并保持开放。
-- 已知故障：当 `RUN_MANIFEST_PATH` 位于 `OUTPUT_DIR` 时，finalize 把准备态 manifest 计入模型目录哈希，改写 finalized 后立即触发 `output_model identity does not match the current artifact`；launcher/文档未禁止该输入。
-- 下一动作：由咨询 Codex使用 `leader.skill` 起草仅覆盖 manifest 自哈希闭环与回归测试的最低必要整改目标，经用户批准后交整改 Codex；修复完成后新建验收 Codex重跑全部明卷和独立负向抽查。
-- 在该 finding 经独立验收关闭前，不得进入 GPU、后续整改批次或正式实验放行。
+- 批次 1 提交链：`907345e` 完成首轮语义与血缘整改，`10e43c2` 修复 manifest 自哈希闭环，`fb29128` 记录整改交付，`655f882` 只新增本治理规约。
+- 原咨询 Codex执行的第一次验收仍保留为**非独立前置诊断**，不具正式验收效力；其中复现的 manifest 自哈希故障属于历史缺陷证据，不得删除或改写成当前现场故障。
+- 第二次验收尝试因旧目标错误地把 `fb29128` 和未提交 `AGENTS.md` 当作预期现场而 `BLOCKED`，同样不具正式验收效力；其输出只作 `recorded-but-not-rerun` 历史记录，不得覆盖后来的指定 HEAD。
+- 独立 CPU 验收已在 `655f88269ed75c0bcab3844a4412313f9342239d` 完整重跑并通过：provenance 19 passed、全套 67 passed、0 skipped；compile、launcher syntax、两项 diff check、固定上游 patch apply/reverse-check 及 3 项独立负向抽查均符合预期。
+- 该结论只关闭批次 1 的本地 CPU 语义、血缘与报警能力验收，不代表 GPU-ready、训练已复跑、论文级完整复现通过或正式实验放行；独立审查中的其他 finding 仍按原裁决管理。
+- 验收使用的 checkout、缓存和负向探针均位于仓库外系统临时目录，只是临时输入，不是永久 artifact；版本化记录只保留判据、结果和非声明边界，不依赖这些路径长期存在。
+- 角色例外记录：正式验收裁决和仓库零变化复核完成后，领导在同一对话明确调用 `neat-freak` 做知识收口；例外范围仅限同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变或补强先前独立验收结论。
+- 下一动作：等待领导对批次 1 作最终放行决定；若放行，再由独立咨询对话依据审查依赖起草下一整改批次。不得由本次 CPU 验收自动推导 GPU、Task 7、BF16 gate 或正式 10-task 放行。
 
 ## 交付最小格式
 

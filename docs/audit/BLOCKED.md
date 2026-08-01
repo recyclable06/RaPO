@@ -1,5 +1,8 @@
 # Blocked / deferred evidence
 
+> **历史审查执行记录：** 本文件保留 2026-07-31 独立审查当时的 blocker 与环境状态，不是当前运行态。当前检查点见仓库根 `AGENTS.md`；下列旧日志不得作为当前现场结果。
+
+
 1. **作者实现未发布（deferred）**：截至 2026-07-31，官方 RaPO 仓库仍仅有 README。无法核对 distributed `sigma_batch`、CTAN 初值、clip/reuse/KL、完整 optimizer、dtype/attention、具体 class orders/5-shot identities 与 metric weighting；禁止用 Visual-RFT patch 猜作者行为。
 2. **高端 BF16 训练环境不可核验（deferred）**：既有 SSH 只到 8×RTX 2080 Ti；无已授权的 8×4090/H100/L40/5090 入口。未扫描网络、未申请权限；GPU 数量/拓扑/空闲、NCCL、BF16/attention/DeepSpeed compatibility 均未知。
 3. **本机完整测试不可运行（deferred）**：`python -m pytest -q` 因缺 `torch` 且 `rapo` 未安装在收集期失败；按边界未安装依赖。handoff 的 “29 passed” 仍为 recorded-but-not-rerun。

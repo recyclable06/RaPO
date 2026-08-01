@@ -9,7 +9,7 @@
 7. Task 1 complete: frozen config/decisions reject wrong scope, correction, reuse, clipping, and KL choices.
 8. Task 2 complete in code: prompt fail-fast and CTAN successful-step transaction cover GA2/4, skip/eval, ranks, and state continuity.
 9. Task 3 complete in code: canonical prepared/finalized manifests and stage bindings reject task/model/state/data/config/parent swaps.
-10. Acceptance green: 65 passed/0 skipped, compile/bash/diff 0, reverse swaps nonzero, clean patch apply/diff 0, hashes and allowlist intact.
+10. Historical executor self-check at `907345e`: 65 passed/0 skipped, compile/bash/diff 0, reverse swaps nonzero, clean patch apply/diff 0, hashes and allowlist intact. This was not independent acceptance.
 
 ## Batch 1 manifest self-hash repair (2026-08-01)
 
@@ -22,4 +22,22 @@
 7. CPU self-test green: provenance 19 passed; full suite 67 passed/0 skipped; compile, launcher syntax, and project diff checks returned 0.
 8. Fixed patch green: clean WSL checkout at `2ffad63b25ddd79bfe25d3e046645401201c89d6`; apply and upstream `diff --check` returned 0.
 9. Code/test/user-doc commit: `10e43c229515ec905bc8a9cd6aca0b4d8568adb3`; launcher inherits the centralized gate without modification.
-10. Current blocker: none. These are executor self-tests only; independent acceptance must rerun the full disclosed checks and hidden negative probes.
+10. Delivery-time blocker: none. These were executor self-tests only; independent acceptance was still pending at delivery and was later completed as recorded below.
+
+## Independent CPU acceptance (2026-08-01)
+
+Earlier attempts remain historical only: the first was a role-mixed
+pre-diagnostic that found the manifest self-hash defect, while the second
+stopped on a stale target that expected `fb29128` and an uncommitted
+`AGENTS.md`. Neither has formal acceptance effect, and neither result was
+inherited below.
+
+1. Acceptance target: `655f88269ed75c0bcab3844a4412313f9342239d`; Windows Git reported a clean worktree before and after acceptance.
+2. Environment: Python 3.10.20, Torch 2.5.1+cpu, pytest 8.4.2. This environment is CPU acceptance-only.
+3. Disclosed checks rerun by the independent acceptance Codex: provenance 19 passed, full suite 67 passed, 0 skipped; compileall, launcher Bash syntax, current diff check, and `42b1a14..655f882` diff check all returned 0.
+4. Fixed Visual-RFT patch: a new clean checkout at `2ffad63b25ddd79bfe25d3e046645401201c89d6` was created outside the repository from a verified Git object source whose origin is the official Visual-RFT URL. Apply, upstream `diff --check`, the two-file allowlist, and reverse-check all passed; no previously patched worktree was reused.
+5. Three independently designed negative checks covered a resolved-path alias at the manifest/output boundary, non-finite CTAN input plus a successful/skipped/successful transaction sequence, and post-finalization parent artifact drift. Invalid inputs raised stable errors and paired legal inputs succeeded.
+6. Verdict: batch 1 passed independent technical acceptance for its local CPU scope. No P0/P1 acceptance failure was found.
+7. Non-claims: this does not establish CUDA/GPU readiness, rerun any training or inference, close other audit findings, complete the paper reproduction, or authorize BF16/Task 7/formal 10-task work.
+8. Acceptance checkout, caches, and probe inputs were external system-temporary data. They are not permanent artifacts and their paths are intentionally not part of the acceptance contract.
+9. Repository state after acceptance remained at the target HEAD with no tracked or untracked change and no repository-root `visual-rft-clean/`.

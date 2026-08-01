@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 
 _ANSWER_PATTERN = re.compile(r"<answer>(.*?)</answer>", re.DOTALL)
@@ -70,6 +71,144 @@ def pad_image_to_minimum_size(image: Any, minimum_size: int) -> Any:
     )
 
 
+def resolve_evaluator_settings(
+    *,
+    profile_path: str | Path | None,
+    torch_dtype: str | None,
+    attention: str | None,
+) -> dict[str, Any]:
+    """Resolve explicit evaluator numerics without a formal-to-legacy fallback."""
+
+    if profile_path is None:
+        resolved_dtype = "float16" if torch_dtype is None else torch_dtype
+        resolved_attention = "sdpa" if attention is None else attention
+        profile = None
+        profile_sha256 = None
+        profile_kind = "legacy_default"
+    else:
+        from rapo.formal_contract import load_experiment_profile
+
+        profile, profile_sha256 = load_experiment_profile(profile_path)
+        profile_kind = profile["profile_kind"]
+        configured_dtype = profile["evaluation"]["torch_dtype"]
+        configured_attention = profile["evaluation"]["attention"]
+        if profile_kind == "formal" and torch_dtype not in {None, configured_dtype}:
+            raise ValueError("Formal evaluator dtype must match the formal profile")
+        if profile_kind == "formal" and attention not in {None, configured_attention}:
+            raise ValueError("Formal evaluator attention must match the formal profile")
+        resolved_dtype = configured_dtype if torch_dtype is None else torch_dtype
+        resolved_attention = configured_attention if attention is None else attention
+    if resolved_dtype not in {"float16", "bfloat16", "float32"}:
+        raise ValueError("Evaluator torch dtype is unsupported")
+    if resolved_attention not in {"flash_attention_2", "sdpa", "eager"}:
+        raise ValueError("Evaluator attention implementation is unsupported")
+    return {
+        "profile": profile,
+        "profile_sha256": profile_sha256,
+        "profile_kind": profile_kind,
+        "torch_dtype": resolved_dtype,
+        "attention": resolved_attention,
+    }
+
+
+def validate_evaluator_runtime_support(
+    *,
+    torch_module: Any,
+    torch_dtype: str,
+    attention: str,
+) -> None:
+    """Fail before model loading when the requested numerical path is unavailable."""
+
+    if not torch_module.cuda.is_available():
+        raise ValueError("CUDA is unavailable")
+    if torch_dtype == "bfloat16" and not torch_module.cuda.is_bf16_supported():
+        raise ValueError("The selected CUDA device does not support bfloat16")
+    if attention == "flash_attention_2" and importlib.util.find_spec("flash_attn") is None:
+        raise ValueError("flash_attention_2 was requested but flash-attn is unavailable")
+    if attention == "sdpa" and not hasattr(
+        torch_module.nn.functional, "scaled_dot_product_attention"
+    ):
+        raise ValueError("sdpa was requested but is unavailable")
+
+
+def build_prediction_lineage(
+    *,
+    model_path: str | Path,
+    stage_dataset: str | Path,
+    data_manifest_path: str | Path,
+    profile_path: str | Path,
+    run_manifest_path: str | Path,
+    torch_dtype: str,
+    attention: str,
+) -> dict[str, Any]:
+    """Bind evaluator inputs to one finalized training run contract."""
+
+    from rapo.formal_contract import load_experiment_profile
+    from rapo.provenance import (
+        canonical_sha256,
+        path_identity,
+        validate_run_manifest,
+    )
+
+    run_path = Path(run_manifest_path)
+    with run_path.open(encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if not isinstance(manifest, dict):
+        raise ValueError("Run manifest must be a JSON object")
+    validate_run_manifest(manifest, require_finalized=True)
+    contract = manifest["contract"]
+    artifacts = manifest["artifacts"]
+    profile, profile_sha = load_experiment_profile(profile_path)
+    identities = {
+        "model": path_identity(model_path),
+        "stage_dataset": path_identity(stage_dataset),
+        "data_manifest": path_identity(data_manifest_path),
+        "profile": path_identity(profile_path),
+    }
+    if identities["model"] != artifacts["output_model"]:
+        raise ValueError("Evaluator model does not match the finalized run")
+    if identities["stage_dataset"] != contract["stage_dataset"]:
+        raise ValueError("Evaluator stage dataset does not match the run contract")
+    if identities["data_manifest"] != contract["data_manifest"]:
+        raise ValueError("Evaluator data manifest does not match the run contract")
+    profile_contract = contract.get("experiment_profile")
+    if profile_contract is None or any(
+        identities["profile"].get(key) != profile_contract.get(key)
+        for key in ("path", "kind", "sha256")
+    ):
+        raise ValueError("Evaluator profile does not match the run contract")
+    if profile_contract.get("canonical_sha256") != profile_sha:
+        raise ValueError("Evaluator profile canonical SHA256 does not match")
+    if profile["profile_kind"] == "formal" and (
+        torch_dtype != profile["evaluation"]["torch_dtype"]
+        or attention != profile["evaluation"]["attention"]
+    ):
+        raise ValueError("Formal evaluator numerics do not match the profile")
+    return {
+        "schema_version": 1,
+        "run_id": contract["run_id"],
+        "run_contract_sha256": manifest["contract_sha256"],
+        "model_sha256": identities["model"]["sha256"],
+        "stage_dataset_sha256": identities["stage_dataset"]["sha256"],
+        "data_manifest_sha256": identities["data_manifest"]["sha256"],
+        "profile_sha256": profile_sha,
+        "torch_dtype": torch_dtype,
+        "attention": attention,
+        "lineage_sha256": canonical_sha256(
+            {
+                "run_id": contract["run_id"],
+                "run_contract_sha256": manifest["contract_sha256"],
+                "model_sha256": identities["model"]["sha256"],
+                "stage_dataset_sha256": identities["stage_dataset"]["sha256"],
+                "data_manifest_sha256": identities["data_manifest"]["sha256"],
+                "profile_sha256": profile_sha,
+                "torch_dtype": torch_dtype,
+                "attention": attention,
+            }
+        ),
+    }
+
+
 @dataclass(frozen=True)
 class ContinualMetrics:
     """Metrics derived from the lower-triangular continual-learning results."""
@@ -94,11 +233,49 @@ class ContinualMetrics:
 
 def aggregate_prediction_records(
     records: Iterable[dict[str, Any]],
+    *,
+    data_manifest: Mapping[str, Any] | None = None,
+    expected_lineage: Mapping[str, Any] | None = None,
 ) -> list[dict[str, int]]:
-    """Aggregate per-example predictions into per-task correct/total counts."""
+    """Aggregate predictions, optionally enforcing the manifest's exact key set."""
 
     counts: dict[tuple[int, int], list[int]] = {}
+    expected_targets: dict[tuple[int, str], str] | None = None
+    observed_keys: set[tuple[int, int, str]] = set()
+    observed_after_tasks: set[int] = set()
+    if data_manifest is not None:
+        classes = data_manifest.get("classes")
+        tasks = data_manifest.get("tasks")
+        if not isinstance(classes, list) or not isinstance(tasks, list) or not tasks:
+            raise ValueError("Data manifest must contain classes and tasks")
+        expected_targets = {}
+        task_count = len(tasks)
+        for class_record in classes:
+            try:
+                eval_task = int(class_record["task_index"])
+                target = f"<answer>{class_record['label']}</answer>"
+                paths = class_record["test_images"]
+            except KeyError as exc:
+                raise ValueError(
+                    f"Data manifest class is missing {exc.args[0]!r}"
+                ) from exc
+            if not isinstance(paths, list):
+                raise ValueError("Data manifest test_images must be a list")
+            for path in paths:
+                key = (eval_task, str(path))
+                if key in expected_targets:
+                    raise ValueError(
+                        f"Data manifest contains duplicate expected key {key}"
+                    )
+                expected_targets[key] = target
+
     for row_number, record in enumerate(records, start=1):
+        if expected_lineage is not None and record.get("lineage") != dict(
+            expected_lineage
+        ):
+            raise ValueError(
+                f"Prediction row {row_number} lineage does not match the result contract"
+            )
         try:
             after_task = int(record["after_task"])
             eval_task = int(record["eval_task"])
@@ -113,11 +290,59 @@ def aggregate_prediction_records(
                 f"Prediction row {row_number} evaluates future task {eval_task} "
                 f"after task {after_task}"
             )
+        if expected_targets is not None and after_task > task_count:
+            raise ValueError(
+                f"Prediction row {row_number} has after_task={after_task} beyond the manifest"
+            )
+        scoring_target = target
+        if expected_targets is not None:
+            try:
+                relative_path = str(record["relative_path"])
+            except KeyError as exc:
+                raise ValueError(
+                    f"Prediction row {row_number} is missing 'relative_path'"
+                ) from exc
+            expected_key = (eval_task, relative_path)
+            if expected_key not in expected_targets:
+                raise ValueError(
+                    "Unknown prediction key "
+                    f"eval_task={eval_task}, relative_path={relative_path}"
+                )
+            prediction_key = (after_task, eval_task, relative_path)
+            if prediction_key in observed_keys:
+                raise ValueError(
+                    "Duplicate prediction key "
+                    f"after_task={after_task}, eval_task={eval_task}, "
+                    f"relative_path={relative_path}"
+                )
+            scoring_target = expected_targets[expected_key]
+            if target != scoring_target:
+                raise ValueError(
+                    f"Prediction row {row_number} target does not match the data manifest"
+                )
+            observed_keys.add(prediction_key)
+            observed_after_tasks.add(after_task)
         correct_and_total = counts.setdefault((after_task, eval_task), [0, 0])
         correct_and_total[0] += int(
-            classification_answer_is_correct(completion, target)
+            classification_answer_is_correct(completion, scoring_target)
         )
         correct_and_total[1] += 1
+
+    if expected_targets is not None:
+        expected_prediction_keys = {
+            (after_task, eval_task, relative_path)
+            for after_task in observed_after_tasks
+            for (eval_task, relative_path) in expected_targets
+            if eval_task <= after_task
+        }
+        missing = sorted(expected_prediction_keys - observed_keys)
+        if missing:
+            formatted = ", ".join(
+                f"({after},{evaluated},{path})"
+                for after, evaluated, path in missing[:10]
+            )
+            suffix = " ..." if len(missing) > 10 else ""
+            raise ValueError(f"Missing prediction keys: {formatted}{suffix}")
 
     return [
         {
@@ -256,11 +481,54 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("input", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--num-tasks", type=int)
+    parser.add_argument("--data-manifest", type=Path)
+    parser.add_argument("--model", type=Path)
+    parser.add_argument("--stage-dataset", type=Path)
+    parser.add_argument("--profile", type=Path)
+    parser.add_argument("--run-manifest", type=Path)
     args = parser.parse_args(argv)
 
     records = _read_jsonl(args.input)
     if records and "completion" in records[0]:
-        records = aggregate_prediction_records(records)
+        if args.data_manifest is None:
+            raise ValueError("Prediction aggregation requires --data-manifest")
+        with args.data_manifest.open(encoding="utf-8") as handle:
+            data_manifest = json.load(handle)
+        if not isinstance(data_manifest, dict):
+            raise ValueError("Data manifest must be a JSON object")
+        expected_lineage = None
+        reported_lineage = records[0].get("lineage")
+        if isinstance(reported_lineage, dict) and reported_lineage.get(
+            "run_contract_sha256"
+        ) is not None:
+            missing = [
+                name
+                for name, value in (
+                    ("--model", args.model),
+                    ("--stage-dataset", args.stage_dataset),
+                    ("--profile", args.profile),
+                    ("--run-manifest", args.run_manifest),
+                )
+                if value is None
+            ]
+            if missing:
+                raise ValueError(
+                    "Formal prediction aggregation requires " + " and ".join(missing)
+                )
+            expected_lineage = build_prediction_lineage(
+                model_path=args.model,
+                stage_dataset=args.stage_dataset,
+                data_manifest_path=args.data_manifest,
+                profile_path=args.profile,
+                run_manifest_path=args.run_manifest,
+                torch_dtype=str(reported_lineage.get("torch_dtype")),
+                attention=str(reported_lineage.get("attention")),
+            )
+        records = aggregate_prediction_records(
+            records,
+            data_manifest=data_manifest,
+            expected_lineage=expected_lineage,
+        )
     metrics = compute_continual_metrics(records, num_tasks=args.num_tasks)
     payload = json.dumps(metrics.to_dict(), indent=2, ensure_ascii=False) + "\n"
     if args.output is None:

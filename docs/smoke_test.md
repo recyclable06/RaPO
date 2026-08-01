@@ -45,6 +45,39 @@ These are engineering starting points, not claims about the paper's hidden
 configuration. A smoke run uses `max_steps`; the final reproduction uses the
 paper's two epochs only after the configuration is frozen.
 
+## Formal contract dry-run (CPU only)
+
+`configs/formal_profile.json` and `configs/legacy_2080ti_profile.json` are
+separate canonical profiles with different hashes and output namespaces. The
+formal profile fixes `num_train_epochs=2`, BF16, FlashAttention-2, eight
+logical ranks, and `configs/deepspeed_zero3_formal_bf16.json`; it contains no
+positive `max_steps`, FP16 loss scale, CPU-offload workaround, or cuDNN
+fallback. Its status remains `pending_hardware_gate`.
+
+The formal runner rejects all `RAPO_SMOKE_*`, `DEEPSPEED_CONFIG`, and legacy
+numeric-workaround environment variables. Its CPU dry-run does not load a
+model or use a GPU:
+
+```bash
+GPU_IDS=0,1,2,3,4,5,6,7 \
+RAPO_TRAIN_SAMPLE_COUNT=100 \
+RAPO_CPU_PYTHON=python \
+bash scripts/run_imagenet_r_formal.sh rapo 1 --dry-run
+```
+
+The JSON output includes the parsed profile and SHA256, epoch budget, world
+size, precision, attention, DeepSpeed path, per-device batch/gradient
+accumulation, sampler presentations, expected generations and optimizer-step
+count, and `pending_hardware_gate`. This batch authorizes only that CPU
+contract and dry-run; it does not establish BF16, FlashAttention, NCCL, ZeRO,
+GPU, training, inference, or paper-result readiness.
+
+An actual formal launch uses the same required run/provenance environment as
+the smoke runner, requires `OUTPUT_DIR` below a `formal` path component, and
+accepts an optional `RAPO_RESUME_CHECKPOINT` pointing to a bound
+`OUTPUT_DIR/checkpoint-*`. It emits `--num_train_epochs 2`; the smoke and 2080
+Ti runners remain step-driven and cannot be presented as formal runs.
+
 ## Prepare the isolated training environment
 
 Run this on the target GPU node inside `tmux`. FlashAttention compilation is

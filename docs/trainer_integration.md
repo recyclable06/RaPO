@@ -76,12 +76,18 @@ rapo_ctan_epsilon: 0.0001
 rapo_state_path: outputs/task_01/rapo_state.json
 rapo_run_id: order0-rapo-task02
 rapo_contract_sha256: <printed by provenance prepare-run>
+rapo_profile_sha256: <canonical experiment-profile SHA256>
 rapo_resume_from_checkpoint: null
 ```
 
-Batch 1 validates cross-task state continuity only: a task accepts state from
-exactly `t-1`. Same-task interrupted/resumed equivalence remains a later batch
-and must not be claimed from the legacy `rapo_resume_from_checkpoint` field.
+Cross-task startup still accepts state only from exactly `t-1`. A same-task
+resume instead loads `rapo_state.json` from the selected `checkpoint-*` and
+requires its task, run ID, run-contract SHA256, and profile SHA256 to match the
+current run. The checkpoint callback binds the model, optimizer, scheduler,
+Trainer global step, Python/Torch RNG files, and CTAN state into
+`rapo_checkpoint_binding.json`. The formal runner validates that binding before
+calling `trainer.train(resume_from_checkpoint=...)`; missing or changed state
+fails before the next training step.
 
 ## Run-manifest gate
 
@@ -93,6 +99,13 @@ RaPO input state, data manifest, task-stage dataset, reproduction config, and
 parent chain. The prepared contract is immutable. After model/state saving,
 `finalize-run` binds their actual SHA256 identities. A retry may reuse only
 identical manifest content.
+
+When `RAPO_EXPERIMENT_PROFILE` is set, its file identity and canonical SHA256
+are part of the run contract, and `OUTPUT_DIR` must contain that profile's
+`output_namespace`. On a formal resume, `python -m rapo.provenance bind-resume`
+adds the one selected checkpoint identity without changing the original run
+contract SHA256. A different checkpoint, profile, run ID, or modified bound
+checkpoint is rejected.
 
 `RUN_MANIFEST_PATH` must be outside `OUTPUT_DIR` so that finalizing the
 manifest cannot change the SHA256 identity of the complete model directory.

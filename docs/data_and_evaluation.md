@@ -166,7 +166,7 @@ the manifest and future stage exports refer to its relative paths.
 The evaluator accepts JSONL prediction rows:
 
 ```json
-{"after_task": 1, "eval_task": 1, "completion": "<think>...</think><answer>goldfish</answer>", "target": "goldfish"}
+{"after_task": 1, "eval_task": 1, "relative_path": "n01443537/image_006.jpg", "completion": "<think>...</think><answer>goldfish</answer>", "target": "<answer>goldfish</answer>", "lineage": {"run_id": "order0-rapo-task01", "run_contract_sha256": "...", "model_sha256": "...", "stage_dataset_sha256": "...", "data_manifest_sha256": "...", "profile_sha256": "...", "torch_dtype": "bfloat16", "attention": "flash_attention_2", "lineage_sha256": "..."}}
 ```
 
 After each trained task `t`, generate predictions on its `test` split, copy the
@@ -175,9 +175,28 @@ row's `task_index` into `eval_task`, and record the current stage as
 
 ```bash
 rapo-evaluate predictions.jsonl \
+  --data-manifest /data/order_0/manifest.json \
+  --model /artifacts/formal/task01/model \
+  --stage-dataset /data/order_0/visual_rft/task_01 \
+  --profile configs/formal_profile.json \
+  --run-manifest /artifacts/formal/task01/run_manifest.json \
   --num-tasks 10 \
   --output continual_metrics.json
 ```
+
+For prediction rows, the data manifest is mandatory. Each accuracy cell must
+have exactly the manifest's `(eval_task, relative_path)` set. Duplicate,
+missing, unknown, and target-mismatched rows fail; correctness is scored
+against the manifest target rather than trusting the prediction's self-report.
+Formal prediction lineage is recomputed from the finalized run, model, stage,
+data manifest, and profile, then required to match every row.
+
+`scripts/evaluate_qwen2_vl.py` accepts explicit `--profile`,
+`--torch-dtype`, and `--attn-implementation`. With no profile it preserves the
+legacy FP16/SDPA and five-samples-per-class defaults. The formal profile fixes
+BF16/FlashAttention-2 and the full manifest test set; an override or an
+unsupported BF16/kernel path fails before model loading or generation rather
+than silently falling back.
 
 It also accepts already aggregated JSONL cells:
 

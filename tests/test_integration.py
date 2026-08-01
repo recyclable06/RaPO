@@ -21,6 +21,7 @@ def config(task_index: int, state_path: str | None = None) -> RapoTrainerConfig:
         rapo_state_path=state_path,
         rapo_run_id=f"run-task-{task_index}",
         rapo_contract_sha256=CONTRACT_SHA256,
+        rapo_profile_sha256="b" * 64,
     )
 
 
@@ -286,3 +287,43 @@ def test_ctan_refuses_state_save_inside_unfinished_step(tmp_path):
 
     with pytest.raises(ValueError, match="unfinished optimizer step"):
         controller.save_state_file(tmp_path / "rapo_state.json")
+
+
+def test_same_task_resume_accepts_only_matching_run_and_contract(tmp_path):
+    source = RapoController(config(task_index=1))
+    rewards = torch.tensor([0.0, 2.0])
+    source.advantages(rewards, 2, global_total_rewards=rewards)
+    source.finish_optimizer_step(successful=True)
+    checkpoint_state = source.save_state_file(tmp_path / "checkpoint" / "rapo_state.json")
+
+    resumed = RapoController(
+        RapoTrainerConfig(
+            rapo_enabled=True,
+            rapo_task_index=1,
+            rapo_ctan_beta=0.5,
+            rapo_state_path=str(checkpoint_state),
+            rapo_resume_from_checkpoint=str(checkpoint_state.parent),
+            rapo_run_id="run-task-1",
+            rapo_contract_sha256=CONTRACT_SHA256,
+            rapo_profile_sha256="b" * 64,
+        )
+    )
+
+    assert resumed.normalizer.state_dict() == source.normalizer.state_dict()
+
+    payload = json.loads(checkpoint_state.read_text(encoding="utf-8"))
+    payload["run_id"] = "wrong-run"
+    checkpoint_state.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="resume state run or contract"):
+        RapoController(
+            RapoTrainerConfig(
+                rapo_enabled=True,
+                rapo_task_index=1,
+                rapo_ctan_beta=0.5,
+                rapo_state_path=str(checkpoint_state),
+                rapo_resume_from_checkpoint=str(checkpoint_state.parent),
+                rapo_run_id="run-task-1",
+                rapo_contract_sha256=CONTRACT_SHA256,
+                rapo_profile_sha256="b" * 64,
+            )
+        )

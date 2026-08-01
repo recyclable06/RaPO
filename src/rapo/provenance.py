@@ -12,6 +12,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from rapo.formal_contract import load_experiment_profile
+from rapo.resume import (
+    CHECKPOINT_BINDING_NAME,
+    CheckpointIdentity,
+    validate_checkpoint_binding,
+)
+
 
 RUN_MANIFEST_SCHEMA_VERSION = 1
 STAGE_BINDING_SCHEMA_VERSION = 1
@@ -299,6 +306,15 @@ def validate_run_manifest(
     if config_sha != contract["reproduction_config"].get("canonical_sha256"):
         raise ValueError("Reproduction config canonical SHA256 does not match")
 
+    experiment_profile = contract.get("experiment_profile")
+    if experiment_profile is not None:
+        _validate_identity(experiment_profile, "experiment_profile")
+        profile, profile_sha = load_experiment_profile(experiment_profile["path"])
+        if profile_sha != experiment_profile.get("canonical_sha256"):
+            raise ValueError("Experiment profile canonical SHA256 does not match")
+        if profile["output_namespace"] not in Path(contract["output_model_path"]).parts:
+            raise ValueError("Output model must use the experiment profile namespace")
+
     data_manifest = _load_json_object(contract["data_manifest"]["path"], "Data manifest")
     validate_stage_binding(contract["stage_dataset"]["path"], data_manifest, task_index)
 
@@ -321,8 +337,14 @@ def validate_run_manifest(
         parent_artifacts = parent["artifacts"]
         if task_index != int(parent_contract["task_index"]) + 1:
             raise ValueError("Parent task must be exactly task_index - 1")
-        for key in ("experiment_id", "method", "repository", "upstream"):
-            if contract[key] != parent_contract[key]:
+        for key in (
+            "experiment_id",
+            "method",
+            "repository",
+            "upstream",
+            "experiment_profile",
+        ):
+            if contract.get(key) != parent_contract.get(key):
                 raise ValueError(f"Run chain changed {key}")
         if run_id == parent_contract["run_id"]:
             raise ValueError("Each task run_id must be unique")
@@ -343,6 +365,27 @@ def validate_run_manifest(
 
     if method == "grpo" and input_state is not None:
         raise ValueError("GRPO runs must not contain CTAN state")
+
+    resume = manifest.get("resume")
+    if resume is not None:
+        if experiment_profile is None:
+            raise ValueError("Resume binding requires an experiment profile")
+        checkpoint = resume.get("checkpoint")
+        if not isinstance(checkpoint, dict):
+            raise ValueError("Resume binding requires a checkpoint identity")
+        _validate_identity(checkpoint, "resume.checkpoint")
+        identity = CheckpointIdentity(
+            run_id,
+            experiment_profile["canonical_sha256"],
+            expected_contract_sha,
+        )
+        binding = validate_checkpoint_binding(
+            checkpoint["path"],
+            expected_identity=identity,
+            require_ctan=method == "rapo",
+        )
+        if int(resume.get("global_step", -1)) != int(binding["global_step"]):
+            raise ValueError("Resume global step does not match its checkpoint binding")
 
     artifacts = manifest.get("artifacts")
     if status == "prepared":
@@ -366,8 +409,15 @@ def validate_run_manifest(
             int(state.get("task_index", 0)) != task_index
             or state.get("run_id") != run_id
             or state.get("contract_sha256") != expected_contract_sha
+            or (
+                experiment_profile is not None
+                and state.get("profile_sha256")
+                != experiment_profile["canonical_sha256"]
+            )
         ):
-            raise ValueError("RaPO state task, run, or contract binding does not match")
+            raise ValueError(
+                "RaPO state task, run, contract, or profile binding does not match"
+            )
     elif output_state is not None:
         raise ValueError("GRPO runs must not contain CTAN state")
 
@@ -387,6 +437,7 @@ def prepare_run_manifest(
     data_manifest_path: str | Path,
     stage_dataset: str | Path,
     reproduction_config_path: str | Path,
+    experiment_profile_path: str | Path | None = None,
     input_state: str | Path | None = None,
     parent_manifest: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -399,6 +450,13 @@ def prepare_run_manifest(
     data_manifest = _load_json_object(data_manifest_path, "Data manifest")
     validate_stage_binding(stage_dataset, data_manifest, task_index)
     _, reproduction_sha = load_reproduction_config(reproduction_config_path)
+    profile_identity = None
+    if experiment_profile_path is not None:
+        _, profile_sha = load_experiment_profile(experiment_profile_path)
+        profile_identity = {
+            **path_identity(experiment_profile_path),
+            "canonical_sha256": profile_sha,
+        }
     upstream_commit = str(
         _run_git(Path(upstream_root).resolve(), "rev-parse", "HEAD")
     ).strip()
@@ -421,6 +479,7 @@ def prepare_run_manifest(
             **path_identity(reproduction_config_path),
             "canonical_sha256": reproduction_sha,
         },
+        "experiment_profile": profile_identity,
         "parent_manifest": None,
     }
     if parent_manifest is not None:
@@ -436,9 +495,55 @@ def prepare_run_manifest(
         "contract": contract,
         "contract_sha256": canonical_sha256(contract),
         "artifacts": None,
+        "resume": None,
     }
     validate_run_manifest(manifest, require_finalized=False)
+    if manifest_path.exists():
+        existing = _load_json_object(manifest_path, "Run manifest")
+        validate_run_manifest(existing, require_finalized=False)
+        if existing["contract"] != contract:
+            raise ValueError(f"Refusing to overwrite different manifest: {manifest_path}")
+        return existing
     write_json_if_absent_or_equal(manifest, manifest_path)
+    return manifest
+
+
+def bind_resume_checkpoint(
+    manifest_path: str | Path,
+    checkpoint_path: str | Path,
+) -> dict[str, Any]:
+    """Bind one immutable production checkpoint to an existing prepared run."""
+
+    path = Path(manifest_path)
+    manifest = _load_json_object(path, "Run manifest")
+    validate_run_manifest(manifest, require_finalized=False)
+    contract = manifest["contract"]
+    profile = contract.get("experiment_profile")
+    if profile is None:
+        raise ValueError("Resume checkpoint binding requires an experiment profile")
+    identity = CheckpointIdentity(
+        contract["run_id"],
+        profile["canonical_sha256"],
+        manifest["contract_sha256"],
+    )
+    checkpoint = Path(checkpoint_path).resolve()
+    binding = validate_checkpoint_binding(
+        checkpoint,
+        expected_identity=identity,
+        require_ctan=contract["method"] == "rapo",
+    )
+    resume = {
+        "checkpoint": path_identity(checkpoint),
+        "binding": path_identity(checkpoint / CHECKPOINT_BINDING_NAME),
+        "global_step": int(binding["global_step"]),
+    }
+    existing = manifest.get("resume")
+    if existing is not None and existing != resume:
+        raise ValueError("Run manifest is already bound to a different resume checkpoint")
+    if existing is None:
+        manifest["resume"] = resume
+        _atomic_write_json(path, manifest)
+    validate_run_manifest(manifest, require_finalized=False)
     return manifest
 
 
@@ -482,6 +587,7 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--data-manifest", required=True, type=Path)
     prepare.add_argument("--stage-dataset", required=True, type=Path)
     prepare.add_argument("--reproduction-config", required=True, type=Path)
+    prepare.add_argument("--experiment-profile", type=Path)
     prepare.add_argument("--input-state", type=Path)
     prepare.add_argument("--parent-manifest", type=Path)
     finalize = subparsers.add_parser("finalize-run")
@@ -491,6 +597,9 @@ def _build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate-run")
     validate.add_argument("--manifest", required=True, type=Path)
     validate.add_argument("--finalized", action="store_true")
+    bind_resume = subparsers.add_parser("bind-resume")
+    bind_resume.add_argument("--manifest", required=True, type=Path)
+    bind_resume.add_argument("--checkpoint", required=True, type=Path)
     return parser
 
 
@@ -511,6 +620,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             data_manifest_path=args.data_manifest,
             stage_dataset=args.stage_dataset,
             reproduction_config_path=args.reproduction_config,
+            experiment_profile_path=args.experiment_profile,
             input_state=args.input_state,
             parent_manifest=args.parent_manifest,
         )
@@ -523,6 +633,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_state=args.output_state,
         )
         print(manifest_sha256(finalized))
+        return 0
+    if args.command == "bind-resume":
+        bound = bind_resume_checkpoint(args.manifest, args.checkpoint)
+        print(manifest_sha256(bound))
         return 0
     manifest = _load_json_object(args.manifest, "Run manifest")
     validate_run_manifest(

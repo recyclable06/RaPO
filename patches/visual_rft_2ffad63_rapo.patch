@@ -1,5 +1,5 @@
 diff --git a/src/virft/src/open_r1/grpo_classification.py b/src/virft/src/open_r1/grpo_classification.py
-index 6e6fdec..493e21f 100644
+index 6e6fdec..acdc0d9 100644
 --- a/src/virft/src/open_r1/grpo_classification.py
 +++ b/src/virft/src/open_r1/grpo_classification.py
 @@ -15,15 +15,18 @@
@@ -153,7 +153,7 @@ index 6e6fdec..493e21f 100644
 +    script_args, training_args, model_args, rapo_args = parser.parse_args_and_config()
 +    main(script_args, training_args, model_args, rapo_args)
 diff --git a/src/virft/src/open_r1/trainer/grpo_trainer.py b/src/virft/src/open_r1/trainer/grpo_trainer.py
-index b35f8ba..ef27a6c 100644
+index b35f8ba..3bec03b 100644
 --- a/src/virft/src/open_r1/trainer/grpo_trainer.py
 +++ b/src/virft/src/open_r1/trainer/grpo_trainer.py
 @@ -15,6 +15,7 @@
@@ -164,8 +164,7 @@ index b35f8ba..ef27a6c 100644
  from typing import Any, Callable, Optional, Union
  
  import torch
-@@ -24,7 +25,8 @@ from datasets import Dataset, IterableDataset
- from packaging import version
+@@ -25,6 +26,7 @@ from packaging import version
  from transformers import (
      AriaForConditionalGeneration,
      AriaProcessor,
@@ -173,7 +172,7 @@ index b35f8ba..ef27a6c 100644
      AutoModelForCausalLM,
      AutoModelForSequenceClassification,
      AutoProcessor,
-@@ -39,8 +41,16 @@ from transformers import (
+@@ -39,8 +41,17 @@ from transformers import (
      is_wandb_available,
  )
  from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
@@ -187,18 +186,26 @@ index b35f8ba..ef27a6c 100644
 +    RapoTrainerConfig,
 +    validate_tokenized_multimodal_prompt,
 +)
++from rapo.resume import CheckpointIdentity, write_checkpoint_binding
  from trl.data_utils import apply_chat_template, is_conversational, maybe_apply_chat_template
  from trl.models import create_reference_model, prepare_deepspeed, unwrap_model_for_generation
  from trl.trainer.grpo_config import GRPOConfig
-@@ -60,6 +70,25 @@ if is_wandb_available():
+@@ -60,6 +71,44 @@ if is_wandb_available():
  RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
  
  
-+class _RapoStateCallback(TrainerCallback):
-+    def __init__(self, controller: RapoController):
++class _RunStateCallback(TrainerCallback):
++    def __init__(
++        self,
++        controller: Optional[RapoController],
++        config: RapoTrainerConfig,
++    ):
 +        self.controller = controller
++        self.config = config
 +
 +    def on_step_end(self, args, state, control, **kwargs):
++        if self.controller is None:
++            return control
 +        optimizer = kwargs.get("optimizer")
 +        step_was_skipped = getattr(optimizer, "step_was_skipped", None)
 +        if step_was_skipped is None:
@@ -209,14 +216,26 @@ index b35f8ba..ef27a6c 100644
 +    def on_save(self, args, state, control, **kwargs):
 +        if args.should_save:
 +            checkpoint_dir = Path(args.output_dir) / f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}"
-+            self.controller.save_state_file(checkpoint_dir / RAPO_STATE_NAME)
++            if self.controller is not None:
++                self.controller.save_state_file(checkpoint_dir / RAPO_STATE_NAME)
++            if self.config.rapo_profile_sha256 is not None:
++                write_checkpoint_binding(
++                    checkpoint_dir,
++                    identity=CheckpointIdentity(
++                        self.config.rapo_run_id,
++                        self.config.rapo_profile_sha256,
++                        self.config.rapo_contract_sha256,
++                    ),
++                    global_step=state.global_step,
++                    require_ctan=self.controller is not None,
++                )
 +        return control
 +
 +
  class Qwen2VLGRPOTrainer(Trainer):
      """
      Trainer for the Group Relative Policy Optimization (GRPO) method. This algorithm was initially proposed in the
-@@ -159,7 +188,19 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -159,7 +208,23 @@ class Qwen2VLGRPOTrainer(Trainer):
          max_pixels: Optional[int] = 12845056,
          min_pixels: Optional[int] = 3136,
          attn_implementation: str = "flash_attention_2",
@@ -231,13 +250,16 @@ index b35f8ba..ef27a6c 100644
 +                    "is not the frozen previous-task policy."
 +                )
 +            self.rapo_controller = RapoController(rapo_config)
-+            callbacks = [*(callbacks or []), _RapoStateCallback(self.rapo_controller)]
++        if self.rapo_controller is not None or rapo_config.rapo_profile_sha256 is not None:
++            callbacks = [
++                *(callbacks or []),
++                _RunStateCallback(self.rapo_controller, rapo_config),
++            ]
 +
          # Args
          if args is None:
              model_name = model if isinstance(model, str) else model.config._name_or_path
-@@ -186,18 +227,20 @@ class Qwen2VLGRPOTrainer(Trainer):
-             # Disable caching if gradient checkpointing is enabled (not supported)
+@@ -187,17 +252,19 @@ class Qwen2VLGRPOTrainer(Trainer):
              model_init_kwargs["use_cache"] = (
                  False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
              )
@@ -260,8 +282,7 @@ index b35f8ba..ef27a6c 100644
              if args.model_init_kwargs is not None:
                  raise ValueError(
                      "You passed `model_init_kwargs` to the `GRPOConfig`, but your model is already instantiated. "
-@@ -208,13 +251,13 @@ class Qwen2VLGRPOTrainer(Trainer):
-             model = get_peft_model(model, peft_config)
+@@ -209,11 +276,11 @@ class Qwen2VLGRPOTrainer(Trainer):
  
          # Reference model
          if is_deepspeed_zero3_enabled():
@@ -276,9 +297,7 @@ index b35f8ba..ef27a6c 100644
                  self.ref_model = AriaForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
              else:
                  self.ref_model = AutoModelForCausalLM.from_pretrained(model_id, **model_init_kwargs)
-         elif peft_config is None:
-@@ -226,14 +269,14 @@ class Qwen2VLGRPOTrainer(Trainer):
-             self.ref_model = None
+@@ -227,12 +294,12 @@ class Qwen2VLGRPOTrainer(Trainer):
  
          # Processing class
          if processing_class is None:
@@ -293,8 +312,9 @@ index b35f8ba..ef27a6c 100644
                      processing_class.image_processor.max_pixels = max_pixels
                      processing_class.image_processor.min_pixels = min_pixels
              else:
-                 processing_class = AutoTokenizer.from_pretrained(model.config._name_or_path, padding_side="left")
-@@ -377,7 +420,8 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -375,8 +442,9 @@ class Qwen2VLGRPOTrainer(Trainer):
+ 
+         
          if self.max_prompt_length is not None:
 -            prompt_ids = prompt_ids[:, -self.max_prompt_length :]
 -            prompt_mask = prompt_mask[:, -self.max_prompt_length :]
@@ -304,8 +324,7 @@ index b35f8ba..ef27a6c 100644
  
          # Generate completions
          with unwrap_model_for_generation(model, self.accelerator) as unwrapped_model:
-             prompt_completion_ids = unwrapped_model.generate(**prompt_inputs, generation_config=self.generation_config)
-@@ -450,19 +494,38 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -450,19 +518,38 @@ class Qwen2VLGRPOTrainer(Trainer):
                  rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
  
          # Sum the rewards from all reward functions
@@ -355,7 +374,7 @@ index b35f8ba..ef27a6c 100644
          per_token_loss = -(per_token_loss - self.beta * per_token_kl)
          loss = ((per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
  
-@@ -478,6 +541,17 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -478,6 +565,17 @@ class Qwen2VLGRPOTrainer(Trainer):
                  reward_func_name = reward_func.__name__
              self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
  
@@ -373,7 +392,7 @@ index b35f8ba..ef27a6c 100644
          self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
  
          self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
-@@ -487,6 +561,12 @@ class Qwen2VLGRPOTrainer(Trainer):
+@@ -487,6 +585,12 @@ class Qwen2VLGRPOTrainer(Trainer):
  
          return loss
  

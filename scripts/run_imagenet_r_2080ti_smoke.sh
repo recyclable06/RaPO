@@ -3,6 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+export RAPO_EXPERIMENT_PROFILE="${script_dir}/../configs/legacy_2080ti_profile.json"
 export DEEPSPEED_CONFIG="${DEEPSPEED_CONFIG:-${script_dir}/../configs/deepspeed_zero3_cpu_offload.json}"
 export MAX_JOBS="${MAX_JOBS:-4}"
 export RAPO_SMOKE_PRECISION="${RAPO_SMOKE_PRECISION:-fp16}"

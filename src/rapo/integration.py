@@ -38,6 +38,7 @@ class RapoTrainerConfig:
     rapo_resume_from_checkpoint: str | None = None
     rapo_run_id: str | None = None
     rapo_contract_sha256: str | None = None
+    rapo_profile_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if self.rapo_task_index < 1:
@@ -50,11 +51,17 @@ class RapoTrainerConfig:
             raise ValueError("rapo_ctan_beta must be in [0, 1)")
         if self.rapo_ctan_epsilon <= 0:
             raise ValueError("rapo_ctan_epsilon must be positive")
-        if not self.rapo_enabled and (
-            self.rapo_state_path is not None
-            or self.rapo_resume_from_checkpoint is not None
-        ):
-            raise ValueError("RaPO state and resume paths require rapo_enabled=True")
+        if not self.rapo_enabled and self.rapo_state_path is not None:
+            raise ValueError("RaPO state paths require rapo_enabled=True")
+        if self.rapo_resume_from_checkpoint is not None:
+            if not self.rapo_run_id:
+                raise ValueError("Resume requires rapo_run_id")
+            for name, value in (
+                ("rapo_contract_sha256", self.rapo_contract_sha256),
+                ("rapo_profile_sha256", self.rapo_profile_sha256),
+            ):
+                if value is None or _SHA256_PATTERN.fullmatch(value) is None:
+                    raise ValueError(f"Resume requires {name} as a lowercase SHA256")
         if self.rapo_enabled:
             if not self.rapo_run_id:
                 raise ValueError("rapo_run_id is required when rapo_enabled=True")
@@ -65,7 +72,11 @@ class RapoTrainerConfig:
                 raise ValueError(
                     "rapo_contract_sha256 must be a lowercase SHA256 when RaPO is enabled"
                 )
-            if self.rapo_task_index == 1 and self.rapo_state_path is not None:
+            if (
+                self.rapo_task_index == 1
+                and self.rapo_state_path is not None
+                and self.rapo_resume_from_checkpoint is None
+            ):
                 raise ValueError("RaPO task 1 forbids prior state")
             if self.rapo_task_index >= 2 and self.rapo_state_path is None:
                 raise ValueError("RaPO task 2+ requires state from the previous task")
@@ -245,6 +256,7 @@ class RapoController:
             "task_index": self.config.rapo_task_index,
             "run_id": self.config.rapo_run_id,
             "contract_sha256": self.config.rapo_contract_sha256,
+            "profile_sha256": self.config.rapo_profile_sha256,
             "settings": {
                 "retention_alpha": self.config.rapo_retention_alpha,
                 "retention_weight": self.config.rapo_retention_weight,
@@ -259,7 +271,16 @@ class RapoController:
             raise ValueError("unsupported RaPO state format")
 
         saved_task = int(state["task_index"])
-        if saved_task != self.config.rapo_task_index - 1:
+        if self.config.rapo_resume_from_checkpoint is not None:
+            if saved_task != self.config.rapo_task_index:
+                raise ValueError("RaPO resume state must come from the current task")
+            if (
+                state.get("run_id") != self.config.rapo_run_id
+                or state.get("contract_sha256") != self.config.rapo_contract_sha256
+                or state.get("profile_sha256") != self.config.rapo_profile_sha256
+            ):
+                raise ValueError("RaPO resume state run or contract binding does not match")
+        elif saved_task != self.config.rapo_task_index - 1:
             raise ValueError("RaPO state must come from exactly the previous task")
         if not state.get("run_id") or _SHA256_PATTERN.fullmatch(
             str(state.get("contract_sha256", ""))

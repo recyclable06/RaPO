@@ -4,8 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from rapo.formal_contract import load_experiment_profile
 from rapo.provenance import (
     PINNED_VISUAL_RFT_COMMIT,
+    bind_resume_checkpoint,
     canonical_sha256,
     finalize_run_manifest,
     load_reproduction_config,
@@ -17,6 +19,7 @@ from rapo.provenance import (
     write_json_if_absent_or_equal,
     write_stage_binding,
 )
+from rapo.resume import CheckpointIdentity, write_checkpoint_binding
 
 
 REPOSITORY = {"commit": "0" * 40, "diff_sha256": "1" * 64}
@@ -361,3 +364,78 @@ def test_sibling_manifest_preserves_output_directory_identity(tmp_path):
     validate_run_manifest(finalized, require_finalized=True)
 
     assert finalized["artifacts"]["output_model"] == path_identity(output_model)
+
+
+def test_formal_profile_is_bound_to_contract_hash_and_output_namespace(tmp_path):
+    config_path, data_path, _, stages = make_shared_inputs(tmp_path)
+    base_model = make_directory(tmp_path / "base", "weights.bin", "base")
+    profile_path = Path("configs/formal_profile.json").resolve()
+    _, profile_sha = load_experiment_profile(profile_path)
+    contract = make_contract(
+        task_index=1,
+        method="grpo",
+        input_model=base_model,
+        output_model=tmp_path / "formal" / "output",
+        data_path=data_path,
+        stage=stages[1],
+        config_path=config_path,
+    )
+    contract["experiment_profile"] = {
+        **path_identity(profile_path),
+        "canonical_sha256": profile_sha,
+    }
+    manifest = prepared_manifest(contract)
+
+    validate_run_manifest(manifest, require_finalized=False)
+
+    contract["output_model_path"] = str((tmp_path / "legacy_2080ti" / "output").resolve())
+    manifest["contract_sha256"] = canonical_sha256(contract)
+    with pytest.raises(ValueError, match="profile namespace"):
+        validate_run_manifest(manifest, require_finalized=False)
+
+
+def test_prepared_manifest_binds_exact_production_resume_checkpoint(tmp_path):
+    config_path, data_path, _, stages = make_shared_inputs(tmp_path)
+    base_model = make_directory(tmp_path / "base", "weights.bin", "base")
+    profile_path = Path("configs/formal_profile.json").resolve()
+    _, profile_sha = load_experiment_profile(profile_path)
+    contract = make_contract(
+        task_index=1,
+        method="grpo",
+        input_model=base_model,
+        output_model=tmp_path / "formal" / "output",
+        data_path=data_path,
+        stage=stages[1],
+        config_path=config_path,
+        run_id="formal-run",
+    )
+    contract["experiment_profile"] = {
+        **path_identity(profile_path),
+        "canonical_sha256": profile_sha,
+    }
+    manifest = prepared_manifest(contract)
+    manifest["resume"] = None
+    manifest_path = write_json(tmp_path / "run.json", manifest)
+    checkpoint = tmp_path / "formal" / "output" / "checkpoint-3"
+    checkpoint.mkdir(parents=True)
+    for name in (
+        "trainer_state.json",
+        "scheduler.pt",
+        "optimizer.pt",
+        "rng_state.pth",
+        "model.safetensors",
+    ):
+        (checkpoint / name).write_text(name, encoding="utf-8")
+    write_checkpoint_binding(
+        checkpoint,
+        identity=CheckpointIdentity(
+            "formal-run", profile_sha, manifest["contract_sha256"]
+        ),
+        global_step=3,
+        require_ctan=False,
+    )
+
+    bound = bind_resume_checkpoint(manifest_path, checkpoint)
+
+    assert bound["resume"]["global_step"] == 3
+    validate_run_manifest(bound, require_finalized=False)

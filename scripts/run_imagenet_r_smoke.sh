@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
+run_mode="${RAPO_RUN_MODE:-smoke}"
+if [[ "${run_mode}" == "formal" ]]; then
+    if [[ $# -ne 2 ]]; then
+        echo "Formal mode requires <grpo|rapo> <task-index> and forbids max-steps." >&2
+        exit 2
+    fi
+elif [[ $# -lt 2 || $# -gt 3 ]]; then
     echo "Usage: bash scripts/run_imagenet_r_smoke.sh <grpo|rapo> <task-index> [max-steps]" >&2
     exit 2
 fi
@@ -12,16 +18,38 @@ max_steps="${3:-20}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 conda_exe="${CONDA_EXE:-${HOME}/miniforge3/bin/conda}"
 env_name="${RAPO_TRAIN_ENV:-rapo-train}"
-precision="${RAPO_SMOKE_PRECISION:-bf16}"
-attn_implementation="${RAPO_SMOKE_ATTN_IMPLEMENTATION:-flash_attention_2}"
-max_prompt_length="${RAPO_SMOKE_MAX_PROMPT_LENGTH:-1024}"
-max_completion_length="${RAPO_SMOKE_MAX_COMPLETION_LENGTH:-256}"
-gradient_accumulation_steps="${RAPO_SMOKE_GRADIENT_ACCUMULATION_STEPS:-2}"
-gradient_checkpointing="${RAPO_SMOKE_GRADIENT_CHECKPOINTING:-false}"
-max_pixels="${RAPO_SMOKE_MAX_PIXELS:-401408}"
-min_pixels="${RAPO_SMOKE_MIN_PIXELS:-3136}"
-num_generations="${RAPO_SMOKE_NUM_GENERATIONS:-8}"
-save_strategy="${RAPO_SMOKE_SAVE_STRATEGY:-steps}"
+resume_checkpoint="${RAPO_RESUME_CHECKPOINT:-}"
+experiment_profile="${RAPO_EXPERIMENT_PROFILE:-}"
+if [[ "${run_mode}" == "formal" ]]; then
+    precision="${RAPO_FORMAL_PRECISION:?RAPO_FORMAL_PRECISION must be set}"
+    attn_implementation="${RAPO_FORMAL_ATTN_IMPLEMENTATION:?RAPO_FORMAL_ATTN_IMPLEMENTATION must be set}"
+    max_prompt_length="${RAPO_FORMAL_MAX_PROMPT_LENGTH:?RAPO_FORMAL_MAX_PROMPT_LENGTH must be set}"
+    max_completion_length="${RAPO_FORMAL_MAX_COMPLETION_LENGTH:?RAPO_FORMAL_MAX_COMPLETION_LENGTH must be set}"
+    gradient_accumulation_steps="${RAPO_FORMAL_GRADIENT_ACCUMULATION_STEPS:?RAPO_FORMAL_GRADIENT_ACCUMULATION_STEPS must be set}"
+    gradient_checkpointing="${RAPO_FORMAL_GRADIENT_CHECKPOINTING:?RAPO_FORMAL_GRADIENT_CHECKPOINTING must be set}"
+    max_pixels="${RAPO_FORMAL_MAX_PIXELS:?RAPO_FORMAL_MAX_PIXELS must be set}"
+    min_pixels="${RAPO_FORMAL_MIN_PIXELS:?RAPO_FORMAL_MIN_PIXELS must be set}"
+    num_generations="${RAPO_FORMAL_NUM_GENERATIONS:?RAPO_FORMAL_NUM_GENERATIONS must be set}"
+    save_strategy="${RAPO_FORMAL_SAVE_STRATEGY:?RAPO_FORMAL_SAVE_STRATEGY must be set}"
+    save_steps="${RAPO_FORMAL_SAVE_STEPS:?RAPO_FORMAL_SAVE_STEPS must be set}"
+    num_train_epochs="${RAPO_FORMAL_NUM_TRAIN_EPOCHS:?RAPO_FORMAL_NUM_TRAIN_EPOCHS must be set}"
+    deepspeed_config="${RAPO_FORMAL_DEEPSPEED_CONFIG:?RAPO_FORMAL_DEEPSPEED_CONFIG must be set}"
+    if [[ -z "${experiment_profile}" ]]; then
+        echo "Formal mode requires RAPO_EXPERIMENT_PROFILE." >&2
+        exit 2
+    fi
+else
+    precision="${RAPO_SMOKE_PRECISION:-bf16}"
+    attn_implementation="${RAPO_SMOKE_ATTN_IMPLEMENTATION:-flash_attention_2}"
+    max_prompt_length="${RAPO_SMOKE_MAX_PROMPT_LENGTH:-1024}"
+    max_completion_length="${RAPO_SMOKE_MAX_COMPLETION_LENGTH:-256}"
+    gradient_accumulation_steps="${RAPO_SMOKE_GRADIENT_ACCUMULATION_STEPS:-2}"
+    gradient_checkpointing="${RAPO_SMOKE_GRADIENT_CHECKPOINTING:-false}"
+    max_pixels="${RAPO_SMOKE_MAX_PIXELS:-401408}"
+    min_pixels="${RAPO_SMOKE_MIN_PIXELS:-3136}"
+    num_generations="${RAPO_SMOKE_NUM_GENERATIONS:-8}"
+    save_strategy="${RAPO_SMOKE_SAVE_STRATEGY:-steps}"
+fi
 
 required_variables=(
     GPU_IDS
@@ -58,7 +86,7 @@ elif [[ -z "${PARENT_MANIFEST_PATH:-}" || ! -f "${PARENT_MANIFEST_PATH}" ]]; the
     echo "Task ${task_index} requires a finalized PARENT_MANIFEST_PATH." >&2
     exit 2
 fi
-if [[ ! "${max_steps}" =~ ^[1-9][0-9]*$ ]]; then
+if [[ "${run_mode}" != "formal" && ! "${max_steps}" =~ ^[1-9][0-9]*$ ]]; then
     echo "max-steps must be a positive integer." >&2
     exit 2
 fi
@@ -83,6 +111,16 @@ fi
 if [[ "${save_strategy}" != "steps" && "${save_strategy}" != "no" ]]; then
     echo "RAPO_SMOKE_SAVE_STRATEGY must be either steps or no." >&2
     exit 2
+fi
+if [[ "${run_mode}" == "formal" ]]; then
+    if [[ "${num_train_epochs}" != "2" ]]; then
+        echo "Formal mode requires exactly RAPO_FORMAL_NUM_TRAIN_EPOCHS=2." >&2
+        exit 2
+    fi
+    if [[ ! "${save_steps}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "RAPO_FORMAL_SAVE_STEPS must be a positive integer." >&2
+        exit 2
+    fi
 fi
 for value_name in \
     max_prompt_length \
@@ -117,14 +155,33 @@ if [[ -e "${OUTPUT_DIR}" && ! -d "${OUTPUT_DIR}" ]]; then
     echo "OUTPUT_DIR exists and is not a directory: ${OUTPUT_DIR}" >&2
     exit 1
 fi
-if [[ -d "${OUTPUT_DIR}" ]] && [[ -n "$(find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+if [[ -d "${OUTPUT_DIR}" ]] && [[ -n "$(find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]] && [[ -z "${resume_checkpoint}" ]]; then
     echo "OUTPUT_DIR already exists and is not empty: ${OUTPUT_DIR}" >&2
     exit 1
+fi
+if [[ -n "${resume_checkpoint}" ]]; then
+    if [[ "${run_mode}" != "formal" ]]; then
+        echo "Resume checkpoints are exposed only by the formal runner." >&2
+        exit 2
+    fi
+    if [[ ! -d "${resume_checkpoint}" ]]; then
+        echo "Resume checkpoint directory not found: ${resume_checkpoint}" >&2
+        exit 1
+    fi
+    case "$(cd "${resume_checkpoint}" && pwd)" in
+        "$(cd "${OUTPUT_DIR}" && pwd)"/checkpoint-*) ;;
+        *)
+            echo "Resume checkpoint must be a checkpoint-* directory inside OUTPUT_DIR." >&2
+            exit 2
+            ;;
+    esac
 fi
 
 entrypoint="${VISUAL_RFT_ROOT}/src/virft/src/open_r1/grpo_classification.py"
 trainer_path="${VISUAL_RFT_ROOT}/src/virft/src/open_r1/trainer/grpo_trainer.py"
-deepspeed_config="${DEEPSPEED_CONFIG:-${VISUAL_RFT_ROOT}/src/virft/local_scripts/zero3.json}"
+if [[ "${run_mode}" != "formal" ]]; then
+    deepspeed_config="${DEEPSPEED_CONFIG:-${VISUAL_RFT_ROOT}/src/virft/local_scripts/zero3.json}"
+fi
 if [[ ! -f "${entrypoint}" || ! -f "${trainer_path}" || ! -f "${deepspeed_config}" ]]; then
     echo "Visual-RFT entrypoint or DeepSpeed config is missing." >&2
     exit 1
@@ -154,6 +211,10 @@ if [[ ! -f "${reproduction_config}" ]]; then
     echo "Independent reproduction config not found: ${reproduction_config}" >&2
     exit 1
 fi
+if [[ -n "${experiment_profile}" && ! -f "${experiment_profile}" ]]; then
+    echo "Experiment profile not found: ${experiment_profile}" >&2
+    exit 1
+fi
 
 provenance_arguments=(
     --manifest "${RUN_MANIFEST_PATH}"
@@ -170,6 +231,9 @@ provenance_arguments=(
     --stage-dataset "${DATASET_PATH}"
     --reproduction-config "${reproduction_config}"
 )
+if [[ -n "${experiment_profile}" ]]; then
+    provenance_arguments+=(--experiment-profile "${experiment_profile}")
+fi
 if (( task_index >= 2 )); then
     provenance_arguments+=(--parent-manifest "${PARENT_MANIFEST_PATH}")
 fi
@@ -190,7 +254,9 @@ if [[ "${method}" == "rapo" ]]; then
             exit 2
         fi
         provenance_arguments+=(--input-state "${RAPO_STATE_PATH}")
-        rapo_arguments+=(--rapo_state_path "${RAPO_STATE_PATH}")
+        if [[ -z "${resume_checkpoint}" ]]; then
+            rapo_arguments+=(--rapo_state_path "${RAPO_STATE_PATH}")
+        fi
     fi
 fi
 
@@ -206,11 +272,34 @@ if [[ ! "${contract_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
     echo "Run-manifest preparation did not return a canonical contract SHA256." >&2
     exit 1
 fi
-if [[ "${method}" == "rapo" ]]; then
+profile_sha256=""
+if [[ -n "${experiment_profile}" ]]; then
+    profile_sha256="$(
+        "${conda_exe}" run --no-capture-output --name "${env_name}" \
+            python -m rapo.formal_contract --profile "${experiment_profile}" --sha-only
+    )"
+    if [[ ! "${profile_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "Experiment profile did not return a canonical SHA256." >&2
+        exit 1
+    fi
+fi
+if [[ "${method}" == "rapo" || -n "${profile_sha256}" ]]; then
     rapo_arguments+=(
         --rapo_run_id "${RUN_ID}"
         --rapo_contract_sha256 "${contract_sha256}"
     )
+fi
+if [[ -n "${profile_sha256}" ]]; then
+    rapo_arguments+=(--rapo_profile_sha256 "${profile_sha256}")
+fi
+if [[ -n "${resume_checkpoint}" ]]; then
+    rapo_arguments+=(--rapo_resume_from_checkpoint "${resume_checkpoint}")
+    bind_resume_arguments=(
+        --manifest "${RUN_MANIFEST_PATH}"
+        --checkpoint "${resume_checkpoint}"
+    )
+    "${conda_exe}" run --no-capture-output --name "${env_name}" \
+        python -m rapo.provenance bind-resume "${bind_resume_arguments[@]}" >/dev/null
 fi
 
 precision_arguments=(--bf16 false --fp16 true)
@@ -219,7 +308,15 @@ if [[ "${precision}" == "bf16" ]]; then
 fi
 save_arguments=(--save_strategy "${save_strategy}")
 if [[ "${save_strategy}" == "steps" ]]; then
-    save_arguments+=(--save_steps "${max_steps}")
+    if [[ "${run_mode}" == "formal" ]]; then
+        save_arguments+=(--save_steps "${save_steps}")
+    else
+        save_arguments+=(--save_steps "${max_steps}")
+    fi
+fi
+budget_arguments=(--max_steps "${max_steps}")
+if [[ "${run_mode}" == "formal" ]]; then
+    budget_arguments=(--num_train_epochs "${num_train_epochs}")
 fi
 
 export CUDA_VISIBLE_DEVICES="${GPU_IDS}"
@@ -261,7 +358,7 @@ echo "Smoke settings: precision=${precision}, attention=${attn_implementation}, 
     --attn_implementation "${attn_implementation}" \
     --max_pixels "${max_pixels}" \
     --min_pixels "${min_pixels}" \
-    --max_steps "${max_steps}" \
+    "${budget_arguments[@]}" \
     "${save_arguments[@]}" \
     --num_generations "${num_generations}" \
     --seed 0 \

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "profile_name": "rapo-legacy-2080ti-v1",
+  "profile_kind": "legacy_2080ti",
+  "claim_scope": "bounded_legacy_diagnostic",
+  "output_namespace": "legacy_2080ti",
+  "hardware_gate": "legacy_diagnostic_only",
+  "hardware": {
+    "expected_world_size": null,
+    "validation": "recorded_legacy_only"
+  },
+  "training": {
+    "budget_kind": "max_steps",
+    "default_max_steps": 20,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 2,
+    "num_generations": 2,
+    "precision": "fp16",
+    "attention": "sdpa",
+    "deepspeed_config": "configs/deepspeed_zero3_cpu_offload.json",
+    "max_prompt_length": 512,
+    "max_completion_length": 32,
+    "max_pixels": 100352,
+    "min_pixels": 3136,
+    "gradient_checkpointing": true,
+    "dataloader_drop_last": false,
+    "save_strategy": "steps"
+  },
+  "evaluation": {
+    "torch_dtype": "float16",
+    "attention": "sdpa",
+    "sample_scope": "bounded_legacy_default"
+  }
+}

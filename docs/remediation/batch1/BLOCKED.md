@@ -4,6 +4,17 @@
 
 无。
 
+The manifest self-hash repair has no current implementation blocker. Its CPU
+self-tests are not independent acceptance, GPU-readiness, or formal-training
+evidence.
+
+Two fixed-patch setup attempts failed before a successful apply: `/c/...` was
+not a valid path for the installed WSL `bash`, and a Windows-created checkout
+appeared non-clean to WSL Git because of cross-environment working-tree
+normalization. A fresh WSL-created checkout at the pinned commit was clean;
+the versioned patch then applied and `git diff --check` returned 0. The failed
+temporary checkout paths were not cleaned because this task forbids cleanup.
+
 The CPU-only acceptance environment is not a formal CUDA training environment and must not be used as GPU-readiness evidence.
 
 ## Resolved raw output (task 0)

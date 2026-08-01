@@ -94,6 +94,15 @@ parent chain. The prepared contract is immutable. After model/state saving,
 `finalize-run` binds their actual SHA256 identities. A retry may reuse only
 identical manifest content.
 
+`RUN_MANIFEST_PATH` must be outside `OUTPUT_DIR` so that finalizing the
+manifest cannot change the SHA256 identity of the complete model directory.
+Use a sibling or separate audit path, for example:
+
+```bash
+OUTPUT_DIR=/artifacts/task01/model
+RUN_MANIFEST_PATH=/artifacts/task01/run_manifest.json
+```
+
 ## Deliberate compatibility limits
 
 - RaPO with the vLLM trainer is rejected because that trainer has a separate

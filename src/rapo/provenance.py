@@ -390,6 +390,12 @@ def prepare_run_manifest(
     input_state: str | Path | None = None,
     parent_manifest: str | Path | None = None,
 ) -> dict[str, Any]:
+    manifest_path = Path(manifest_path).resolve()
+    output_model = Path(output_model).resolve()
+    if manifest_path == output_model or output_model in manifest_path.parents:
+        raise ValueError(
+            "Run manifest path must be outside the output model directory"
+        )
     data_manifest = _load_json_object(data_manifest_path, "Data manifest")
     validate_stage_binding(stage_dataset, data_manifest, task_index)
     _, reproduction_sha = load_reproduction_config(reproduction_config_path)
@@ -407,7 +413,7 @@ def prepare_run_manifest(
             "patch_sha256": file_sha256(patch_path),
         },
         "input_model": path_identity(input_model),
-        "output_model_path": str(Path(output_model).resolve()),
+        "output_model_path": str(output_model),
         "input_state": None if input_state is None else path_identity(input_state),
         "data_manifest": path_identity(data_manifest_path),
         "stage_dataset": path_identity(stage_dataset),

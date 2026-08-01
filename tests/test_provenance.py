@@ -11,6 +11,7 @@ from rapo.provenance import (
     load_reproduction_config,
     manifest_sha256,
     path_identity,
+    prepare_run_manifest,
     validate_reproduction_config,
     validate_run_manifest,
     write_json_if_absent_or_equal,
@@ -291,3 +292,72 @@ def test_existing_different_run_manifest_is_rejected(tmp_path):
 
     with pytest.raises(ValueError, match="different manifest"):
         write_json_if_absent_or_equal({"run_id": "b"}, path)
+
+
+def test_prepare_rejects_manifest_inside_output_before_artifact_access(tmp_path):
+    output_model = tmp_path / "artifacts" / ".." / "output"
+    manifest_path = tmp_path / "output" / "run_manifest.json"
+
+    with pytest.raises(
+        ValueError, match="Run manifest path must be outside the output model directory"
+    ):
+        prepare_run_manifest(
+            manifest_path=manifest_path,
+            experiment_id="experiment-a",
+            run_id="run-1",
+            method="grpo",
+            task_index=1,
+            repo_root=tmp_path / "missing-repository",
+            upstream_root=tmp_path / "missing-upstream",
+            patch_path=tmp_path / "missing.patch",
+            input_model=tmp_path / "missing-input-model",
+            output_model=output_model,
+            data_manifest_path=tmp_path / "missing-data-manifest.json",
+            stage_dataset=tmp_path / "missing-stage",
+            reproduction_config_path=tmp_path / "missing-config.json",
+        )
+
+    assert not manifest_path.exists()
+    assert not output_model.resolve().exists()
+
+
+def test_sibling_manifest_preserves_output_directory_identity(tmp_path):
+    output_model = tmp_path / "output"
+    manifest_path = tmp_path / "output-audit.json"
+    missing_data_manifest = tmp_path / "missing-data-manifest.json"
+    with pytest.raises(FileNotFoundError) as error:
+        prepare_run_manifest(
+            manifest_path=manifest_path,
+            experiment_id="experiment-a",
+            run_id="run-1",
+            method="grpo",
+            task_index=1,
+            repo_root=tmp_path / "missing-repository",
+            upstream_root=tmp_path / "missing-upstream",
+            patch_path=tmp_path / "missing.patch",
+            input_model=tmp_path / "missing-input-model",
+            output_model=output_model,
+            data_manifest_path=missing_data_manifest,
+            stage_dataset=tmp_path / "missing-stage",
+            reproduction_config_path=tmp_path / "missing-config.json",
+        )
+    assert Path(error.value.filename) == missing_data_manifest
+
+    config_path, data_path, _, stages = make_shared_inputs(tmp_path)
+    base_model = make_directory(tmp_path / "base", "weights.bin", "base")
+    output_model = make_directory(output_model, "weights.bin", "trained")
+    contract = make_contract(
+        task_index=1,
+        method="grpo",
+        input_model=base_model,
+        output_model=output_model,
+        data_path=data_path,
+        stage=stages[1],
+        config_path=config_path,
+    )
+    write_json_if_absent_or_equal(prepared_manifest(contract), manifest_path)
+
+    finalized = finalize_run_manifest(manifest_path, output_model=output_model)
+    validate_run_manifest(finalized, require_finalized=True)
+
+    assert finalized["artifacts"]["output_model"] == path_identity(output_model)

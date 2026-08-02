@@ -219,3 +219,64 @@ F = mean over j < T of (max over t >= j accuracy[t, j] - accuracy[T, j])
 
 The output includes decimal and percentage forms of both metrics, plus
 accuracy, correct-count, and total-count matrices.
+
+## Formal CPU/no-GPU orchestration
+
+`configs/formal_orchestration.json` freezes the repository's formal protocol at
+10 tasks, GRPO/RaPO, class-order seeds 0/1/2, sample/training/data seed 0, and
+the full manifest test set. It also binds the existing formal profile and
+independent-reproduction configuration by SHA256. This is an orchestration
+contract; it does not pass the pending hardware gate or run GPU work.
+
+Create a deterministic machine-readable plan from the three manifests, the
+pinned initial model, and a fresh formal artifact root:
+
+```bash
+python -m rapo.orchestration dry-run \
+  --manifest /data/order_0/manifest.json \
+  --manifest /data/order_1/manifest.json \
+  --manifest /data/order_2/manifest.json \
+  --pinned-base /models/Qwen2-VL-2B-Instruct \
+  --artifact-root /artifacts/rapo-formal \
+  --output /artifacts/rapo-formal/formal/orchestration_plan.json
+```
+
+The plan contains exactly 60 training nodes, 60 cumulative full-test
+prediction nodes, six method/order metric nodes, and two three-order summary
+nodes. Each method/order matrix has 55 lower-triangular cells. A prediction
+node's `expected_count` is copied from that order manifest's cumulative
+`tasks[T-1].test_size`; formal commands never add `--samples-per-class`.
+
+Inspect only validated current artifacts and obtain the safe runnable frontier:
+
+```bash
+python -m rapo.orchestration status \
+  --plan /artifacts/rapo-formal/formal/orchestration_plan.json
+```
+
+A training node is complete only when its run manifest passes the existing
+finalized lineage/identity validation. Task 2+ remains blocked until the
+immediately previous task of the same method and order is finalized. A prepared
+current task is resumable only through its existing checkpoint binding for the
+same run contract and a `checkpoint-*` directory inside that task's output
+model directory. Prediction artifacts are accepted only after the existing
+formal lineage, exact-key, duplicate, target, and full-count checks pass. The
+reported commands use the existing formal launcher and evaluator; `status`
+does not execute them.
+
+After all 60 prediction artifacts exist, compute the six continual-learning
+matrices and the two cross-order summaries:
+
+```bash
+python -m rapo.orchestration aggregate \
+  --plan /artifacts/rapo-formal/formal/orchestration_plan.json \
+  --output /artifacts/rapo-formal/formal/three_order_metrics.json
+```
+
+Aggregation revalidates every prediction stage against its finalized run and
+manifest before reusing the existing exact-key/full-count aggregation and
+continual-metrics implementation. The result records all 60 prediction file
+SHA256 values, the plan/input identities, each order's Last Accuracy and
+Forgetting, and each method's three-order mean and population standard
+deviation (`ddof=0`). Population standard deviation is a disclosed independent
+reproduction choice, not a paper fact.

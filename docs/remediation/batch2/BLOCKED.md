@@ -1,6 +1,6 @@
 # BLOCKED
 
-## Current final CPU acceptance status (2026-08-02)
+## Released local CPU status (2026-08-02)
 
 No blocking CPU acceptance issue was reproduced at
 `1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5`. The final independent acceptance
@@ -9,7 +9,8 @@ legal/illegal controls for `B2-ACC-001/002` and
 `B2-HIDDEN-001/002/003`; all approved blocking criteria behaved as required.
 The acceptor did not create or close formal findings; this section records the
 current technical acceptance result while preserving the historical failures
-below.
+below. The leader approved final release of this local CPU scope; batch 2 is
+closed.
 
 ### Non-blocking P2 observation
 
@@ -19,13 +20,15 @@ binding. The standard patched Trainer passes the boolean expression
 `self.controller is not None`, and `validate_checkpoint_binding` rejects the
 string before resume. No frozen launcher/CLI or normally generated standard
 artifact path was shown to alter training, resume continuity, or a formal
-result. This remains non-blocking and is not a new formal finding.
+result. The leader retained this as non-blocking P2 backlog and explicitly
+declined further batch-2 repair for it.
 
 ### Release boundary
 
-The leader still decides final batch-2 release. `pending_hardware_gate`, GPU
-execution, BF16/FlashAttention/NCCL behavior, training, Task 7, and the formal
-10-task chain remain out of scope and unapproved.
+The release is limited to batch 2's local CPU contract and alarm behavior.
+`pending_hardware_gate`, GPU execution, BF16/FlashAttention/NCCL behavior,
+training, Task 7, and the formal 10-task chain remain out of scope and
+unapproved.
 
 ## Historical final B2-HIDDEN repair executor status (2026-08-02)
 

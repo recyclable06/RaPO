@@ -1,5 +1,24 @@
 # Batch 2 progress
 
+## Leader release and knowledge closeout (2026-08-02)
+
+1. The leader approved final release of batch 2's local CPU scope based on the
+   independent acceptance of target
+   `1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5`; blocking issues are zero and
+   batch 2 is closed.
+2. The direct non-standard writer call accepting string `require_ctan` remains
+   a non-blocking P2 backlog item. The standard Trainer passes a boolean and
+   resume validation fails closed; the leader explicitly decided not to run
+   another batch-2 repair for this observation.
+3. This release does not cover GPU, actual BF16/FlashAttention/NCCL execution,
+   training, Task 7, the formal 10-task chain, or paper-level reproduction.
+4. The next milestone is the bounded batch-3 CPU/no-GPU orchestration work
+   recorded in `AGENTS.md`, with one main remediation and at most one repair
+   for a research-critical blocker.
+5. Repository-external acceptance probes remain temporary review evidence;
+   versioned records preserve their criteria and results without depending on
+   those paths remaining available.
+
 ## Final independent CPU acceptance after B2-HIDDEN repair (2026-08-02)
 
 All executor self-checks and prior acceptance logs were treated as

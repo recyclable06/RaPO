@@ -13,3 +13,5 @@ or author settings.
 - Prediction identity is `(after_task, eval_task, relative_path)`; the expected per-cell set and target come from the frozen data manifest. Duplicate, missing, unknown, and target-mismatched rows fail.
 - No-profile evaluator calls preserve the legacy FP16/SDPA and five-samples-per-class defaults. An explicit profile is recorded; formal evaluation requires BF16/FlashAttention-2, full manifest test data, and verified model/stage/data/profile/run lineage without fallback.
 - CPU logical-rank tests cover 1/2/8 shards and freeze CTAN initialization at the first complete successful optimizer-step window. They do not claim NCCL execution.
+- The leader released batch 2's local CPU scope after independent acceptance at `1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5`; this closes batch 2 only and does not authorize GPU, training, Task 7, or the formal 10-task chain.
+- A direct non-standard `write_checkpoint_binding(..., require_ctan="false")` call remains a P2 backlog observation. The standard Trainer passes a boolean and resume validation fails closed, so no further batch-2 repair is authorized for this item.

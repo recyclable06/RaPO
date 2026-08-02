@@ -38,6 +38,8 @@ of scope until the paper reproduction is complete.
       and Trainer-step failures.
 - [x] Repair the three new P1 contract failures found by the complete batch-2
       re-acceptance and pass the final independent CPU acceptance suite.
+- [x] Receive leader release for batch 2's local CPU scope, with the remaining
+      non-standard binding-type observation retained as P2 backlog.
 - [ ] Close the remaining audit-driven CPU/no-GPU orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
@@ -50,11 +52,13 @@ suites with 0 skipped, static gates, formal dry-run, five direct production-API
 regressions, and the unchanged fixed-upstream gate. All blocking controls
 passed. One non-standard writer call can still emit a string-valued CTAN
 binding, but the standard Trainer supplies a boolean and resume validation
-fails closed; this is recorded as a non-blocking P2 observation in
+fails closed; the leader retained this as non-blocking P2 backlog with no
+further batch-2 repair in
 [docs/remediation/batch2/BLOCKED.md](docs/remediation/batch2/BLOCKED.md).
-This technical acceptance remains pending the leader's final batch-release
-decision. It is not GPU evidence, a rerun of training, or completion of the
-paper reproduction. The authoritative current checkpoint is in
+The leader released batch 2's local CPU scope after that acceptance. This is
+not GPU evidence, a rerun of training, or completion of the paper reproduction.
+The next milestone is the bounded CPU/no-GPU orchestration batch described by
+the authoritative current checkpoint in
 [AGENTS.md](AGENTS.md); the dated independent findings remain in
 [docs/audit/2026-07-31-independent-audit.md](docs/audit/2026-07-31-independent-audit.md).
 

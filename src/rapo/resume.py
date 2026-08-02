@@ -256,7 +256,10 @@ def validate_checkpoint_binding(
         raise ValueError("Checkpoint binding must be a JSON object")
     if payload.get("identity") != asdict(expected_identity):
         raise ValueError("Checkpoint run/profile/contract binding does not match")
-    if bool(payload.get("require_ctan")) != require_ctan:
+    binding_require_ctan = payload.get("require_ctan")
+    if not isinstance(binding_require_ctan, bool):
+        raise ValueError("Checkpoint require_ctan must be a JSON boolean")
+    if binding_require_ctan != require_ctan:
         raise ValueError("Checkpoint method state binding does not match")
     trainer_global_step = _read_trainer_global_step(checkpoint)
     _require_production_state(checkpoint, require_ctan=require_ctan)

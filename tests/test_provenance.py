@@ -441,3 +441,45 @@ def test_prepared_manifest_binds_exact_production_resume_checkpoint(tmp_path):
 
     assert bound["resume"]["global_step"] == 3
     validate_run_manifest(bound, require_finalized=False)
+
+
+def test_rapo_binding_rejects_non_boolean_require_ctan(tmp_path):
+    from rapo.resume import validate_checkpoint_binding
+
+    checkpoint = tmp_path / "checkpoint-3"
+    checkpoint.mkdir()
+    for name in (
+        "scheduler.pt",
+        "optimizer.pt",
+        "rng_state.pth",
+        "model.safetensors",
+        "rapo_state.json",
+    ):
+        (checkpoint / name).write_text(name, encoding="utf-8")
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 3}), encoding="utf-8"
+    )
+    identity = CheckpointIdentity("formal-run", "a" * 64, "b" * 64)
+    binding = write_checkpoint_binding(
+        checkpoint,
+        identity=identity,
+        global_step=3,
+        require_ctan=True,
+    )
+    assert validate_checkpoint_binding(
+        checkpoint,
+        expected_identity=identity,
+        require_ctan=True,
+    )["require_ctan"] is True
+
+    payload = json.loads(binding.read_text(encoding="utf-8"))
+    payload["require_ctan"] = "false"
+    binding.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="JSON boolean"):
+        validate_checkpoint_binding(
+            checkpoint,
+            expected_identity=identity,
+            require_ctan=True,
+        )

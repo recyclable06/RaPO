@@ -69,6 +69,15 @@ def validate_experiment_profile(profile: Mapping[str, Any]) -> None:
         raise ValueError("evaluation.attention is unsupported")
 
     if kind == "formal":
+        if profile["output_namespace"] != "formal":
+            raise ValueError("Formal profile requires output_namespace=formal")
+        if (
+            training.get("deepspeed_config")
+            != "configs/deepspeed_zero3_formal_bf16.json"
+        ):
+            raise ValueError(
+                "Formal profile requires the formal BF16 ZeRO-3 DeepSpeed config"
+            )
         if profile["hardware_gate"] != "pending_hardware_gate":
             raise ValueError("Formal profile must remain pending_hardware_gate")
         if training.get("budget_kind") != "epochs":

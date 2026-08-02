@@ -333,3 +333,51 @@ def test_checkpoint_binding_rejects_invalid_trainer_global_step(
             global_step=5,
             require_ctan=True,
         )
+
+
+def test_formal_namespace_downgrade_fails_before_dry_run(tmp_path):
+    profile, profile_sha = load_experiment_profile(FORMAL_PROFILE)
+    build_dry_run_contract(
+        profile,
+        profile_sha256=profile_sha,
+        train_samples=101,
+        world_size=8,
+    )
+    profile["output_namespace"] = "legacy_2080ti"
+    external_profile = tmp_path / "formal_profile.json"
+    external_profile.write_text(json.dumps(profile), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="output_namespace=formal"):
+        load_experiment_profile(external_profile)
+    with pytest.raises(ValueError, match="output_namespace=formal"):
+        build_dry_run_contract(
+            profile,
+            profile_sha256=profile_sha,
+            train_samples=101,
+            world_size=8,
+        )
+
+
+def test_formal_deepspeed_downgrade_fails_before_dry_run(tmp_path):
+    profile, profile_sha = load_experiment_profile(FORMAL_PROFILE)
+    build_dry_run_contract(
+        profile,
+        profile_sha256=profile_sha,
+        train_samples=101,
+        world_size=8,
+    )
+    profile["training"]["deepspeed_config"] = (
+        "configs/deepspeed_zero3_cpu_offload.json"
+    )
+    external_profile = tmp_path / "formal_profile.json"
+    external_profile.write_text(json.dumps(profile), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="formal BF16 ZeRO-3"):
+        load_experiment_profile(external_profile)
+    with pytest.raises(ValueError, match="formal BF16 ZeRO-3"):
+        build_dry_run_contract(
+            profile,
+            profile_sha256=profile_sha,
+            train_samples=101,
+            world_size=8,
+        )

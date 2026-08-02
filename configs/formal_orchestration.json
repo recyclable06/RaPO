@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "protocol_name": "imagenet-r-rapo-formal-orchestration-v1",
+  "claim_scope": "independent_reproduction_formal_cpu_orchestration",
+  "num_tasks": 10,
+  "methods": [
+    "grpo",
+    "rapo"
+  ],
+  "class_order_seeds": [
+    0,
+    1,
+    2
+  ],
+  "sample_seed": 0,
+  "training_seed": 0,
+  "data_seed": 0,
+  "sample_scope": "manifest_full_test",
+  "artifact_namespace": "formal",
+  "population_std_ddof": 0,
+  "experiment_profile": {
+    "path": "configs/formal_profile.json",
+    "sha256": "7eb60580e4a262fbda10fbc3ff8b98a54a7ca2bf49fd212dab8630a5b34d8cd5"
+  },
+  "reproduction_config": {
+    "path": "configs/independent_reproduction.json",
+    "sha256": "50ee4dea8231c6a46907b43c53eebdb2ba4befecc9438eb9c2b0ccbcd1375b43"
+  }
+}

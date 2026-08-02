@@ -1,15 +1,46 @@
 # BLOCKED
 
-## Repair executor status (2026-08-02)
+## Current CPU acceptance blockers after repair revalidation (2026-08-02)
+
+Batch 2 did not pass complete independent CPU re-acceptance at
+`dc637359e4df1d18846541e8a6655686ae097e8f`. The 44/77/100-test suites, static
+gates, formal dry-run, fixed-upstream patch checks, and independent
+`B2-ACC-001/002` legal/illegal controls passed. Those original two failures are
+not current blockers at this target. Three new P1 contract failures remain:
+
+1. **`B2-HIDDEN-001` (P1): formal output namespace is not isolated.** A legal
+   formal control used namespace `formal`. An external copy differing only by
+   `output_namespace="legacy_2080ti"` was accepted by profile loading and the
+   formal dry-run. A formal run must not enter the frozen legacy namespace.
+2. **`B2-HIDDEN-002` (P1): formal DeepSpeed configuration can downgrade to the
+   legacy path.** A legal formal control resolved
+   `configs/deepspeed_zero3_formal_bf16.json`. An external copy differing only
+   by `training.deepspeed_config="configs/deepspeed_zero3_cpu_offload.json"`
+   was accepted. The frozen formal BF16 ZeRO-3 requirement must fail before use
+   when a legacy FP16 CPU-offload config is selected.
+3. **`B2-HIDDEN-003` (P1): RaPO method-state binding accepts a string as the
+   CTAN requirement.** A legal checkpoint binding with boolean
+   `require_ctan=true` passed. Changing only that field to string `"false"`
+   still passed validation because the current check coerces truthiness instead
+   of requiring a JSON boolean. The checkpoint inventory and Trainer step were
+   unchanged.
+
+Next lifecycle step: an independent consulting conversation may draft one
+minimal repair goal from these versioned failures; the leader must approve it
+before a new remediation conversation changes code. After repair, a new
+independent acceptance conversation must rerun the entire batch-2 protocol,
+not only these three probes.
+
+## Repair executor status before re-acceptance (2026-08-02)
 
 No implementation blocker was encountered while applying the approved minimal
-repair at `90f36f6d41023866dd5f994b7d0168ff5b4c1397`. `B2-ACC-001` and
-`B2-ACC-002` remain formally open until a new independent acceptance
-conversation reruns the complete batch-2 protocol; executor tests cannot close
-them. The `pending_hardware_gate` and all downstream GPU/formal-chain gates
+repair at `90f36f6d41023866dd5f994b7d0168ff5b4c1397`. At that point
+`B2-ACC-001/002` remained open pending independent re-acceptance; the later
+`dc63735` re-acceptance above independently verified their legal and illegal
+controls. The `pending_hardware_gate` and all downstream GPU/formal-chain gates
 remain unchanged.
 
-## Open CPU acceptance blockers (2026-08-02)
+## Historical CPU acceptance blockers before repair (2026-08-02)
 
 Batch 2 did not pass independent CPU acceptance at
 `3661b6755faf39c84e9ba368b2d23cd232cd0fd7`. The disclosed suites and static
@@ -34,13 +65,11 @@ repository-external inputs:
 
 The independent manifest-side pollution control passed: two classes declaring
 the same `(eval_task, relative_path)` were rejected before aggregation. This
-does not close either blocker above.
+did not close either historical blocker in this subsection.
 
-Next lifecycle step: an independent consulting conversation may draft a
-minimal repair goal from these versioned failures; the leader must approve it
-before a new remediation conversation changes code. After repair, a new
-independent acceptance conversation must rerun the entire batch-2 acceptance,
-not only the two failing probes.
+These two failures motivated repair `90f36f6` and are retained as historical
+evidence. Their later independent controls passed; the current lifecycle step
+is governed by `B2-HIDDEN-001/002/003` above.
 
 ## Pending external gate
 

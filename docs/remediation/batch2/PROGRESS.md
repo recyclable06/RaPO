@@ -1,6 +1,56 @@
 # Batch 2 progress
 
+## Independent CPU re-acceptance after repair (2026-08-02)
+
+The independent acceptance Codex treated the repair self-check and every prior
+acceptance log as `recorded-but-not-rerun` until reproducing them at the target.
+
+1. Target: `dc637359e4df1d18846541e8a6655686ae097e8f` on
+   `codex/rapo-b02-formal-contract`; the worktree was clean before and after.
+   The `d98e0ab..90f36f6` implementation diff contained only
+   `src/rapo/{formal_contract,resume}.py` and
+   `tests/{test_formal_contract,test_provenance}.py`; the
+   `90f36f6..dc63735` delivery diff contained only batch-2 `PROGRESS.md` and
+   `BLOCKED.md`. All six frozen file SHA256 values and both canonical profile
+   SHA256 values matched the approved target.
+2. Environment: Python 3.10.20, Torch 2.5.1+cpu, pytest 8.4.2 from
+   `D:\anaconda3\envs\rapo-b01\python.exe`.
+3. Disclosed checks rerun: targeted files 44 passed; complete batch-2 suite 77
+   passed; full suite 100 passed, 0 skipped. Compileall, all three launcher
+   syntax checks, current diff check, and `621daf9..dc63735` diff check returned
+   0.
+4. Formal dry-run returned exactly two epochs, 104 sampler examples per epoch,
+   208 sample presentations, 1,664 generations, 14 optimizer steps, BF16,
+   FlashAttention-2, formal ZeRO-3, and `pending_hardware_gate`.
+5. The public `B2-ACC-001/002` regressions were independently reconstructed
+   without pytest. Legal controls passed; training/evaluation attention
+   downgrades, requested/bound Trainer-step mismatches, missing Trainer state,
+   and boolean/float/negative/non-object Trainer steps all failed before use.
+   Failed binding writes left no reusable binding.
+6. A fresh repository-external Visual-RFT checkout at pinned commit
+   `2ffad63b25ddd79bfe25d3e046645401201c89d6` passed the real patch apply,
+   upstream diff check, exact two-file scope, reverse-check, and patched Python
+   compilation. Two official clones failed at GitHub port 443 and one
+   Windows-native checkout was rejected as non-clean by WSL before patching;
+   none was reused as accepted evidence. A later fresh WSL checkout under the
+   external Windows temporary evidence root completed the full check and was
+   preserved for review.
+7. Three new repository-external negative probes had legal controls pass but
+   all three invalid variants were accepted: `B2-HIDDEN-001` allowed a formal
+   profile to use output namespace `legacy_2080ti`; `B2-HIDDEN-002` allowed a
+   formal profile to select the legacy FP16 CPU-offload DeepSpeed config; and
+   `B2-HIDDEN-003` accepted string `"false"` as a RaPO binding's
+   `require_ctan` value.
+8. Verdict: **batch 2 did not pass independent CPU re-acceptance**. The three
+   P1 alarm failures override the green disclosed suites, original regressions,
+   and patch checks. This verdict covers only local CPU contracts and failure
+   detection; it does not authorize or claim GPU, BF16, FlashAttention, NCCL,
+   Task 7, training, inference, or paper-level reproduction.
+
 ## B2-ACC-001/002 repair (2026-08-02)
+
+> Historical executor record. The current independent verdict is the
+> re-acceptance section above.
 
 1. Goal: fail before formal execution on either attention downgrade and before binding/resume on any Trainer global-step mismatch.
 2. Order: verify `d98e0ab` baseline -> add failing regressions -> make the smallest centralized validators -> rerun all gates -> commit code/tests then delivery records.
@@ -103,6 +153,9 @@ deletion, or push was performed. These are executor self-checks, not an
 independent acceptance verdict.
 
 ## Independent CPU acceptance (2026-08-02)
+
+> Historical first-acceptance record, superseded as current state by the
+> repair and complete re-acceptance sections above.
 
 The independent acceptance Codex treated all executor results above as
 `recorded-but-not-rerun` until reproducing them at the specified target.

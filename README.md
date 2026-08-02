@@ -34,18 +34,23 @@ of scope until the paper reproduction is complete.
       remediation batch 1.
 - [x] Deliver remediation batch 2's strict two-epoch, profile, resume,
       evaluation, and provenance implementation.
-- [ ] Repair the two P1 failures found by batch 2 independent CPU acceptance
-      and rerun the complete independent acceptance suite.
+- [x] Repair and independently revalidate the original batch-2 P1 attention
+      and Trainer-step failures.
+- [ ] Repair the three new P1 contract failures found by the complete batch-2
+      re-acceptance and rerun the full independent acceptance suite.
 - [ ] Close the remaining audit-driven CPU/no-GPU orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
 Batch 1 acceptance covers local CPU semantics, lineage, and failure detection.
-Batch 2 implementation was delivered at `3661b67`, but its 2026-08-02
-independent CPU acceptance did not pass: the disclosed 65/88-test suites were
-green, while hidden probes found that a formal profile could downgrade training
-attention to SDPA and a resume binding could disagree with Trainer global step.
-The open blockers are recorded in
+Batch 2's original P1 failures were repaired at `90f36f6` and independently
+revalidated at `dc63735`: the 44/77/100-test suites, original regression
+controls, static gates, formal dry-run, and fixed-upstream patch check all
+passed. The complete re-acceptance still did not pass because three new P1
+probes showed that a formal profile could use the legacy output namespace or
+legacy DeepSpeed config, and a RaPO checkpoint binding could encode
+`require_ctan` as the string `"false"` without rejection. The current blockers
+are recorded in
 [docs/remediation/batch2/BLOCKED.md](docs/remediation/batch2/BLOCKED.md).
 Neither CPU result is GPU evidence, a rerun of training, or completion of the
 paper reproduction. The authoritative current checkpoint is in

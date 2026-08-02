@@ -1,5 +1,59 @@
 # Batch 2 progress
 
+## Final independent CPU acceptance after B2-HIDDEN repair (2026-08-02)
+
+All executor self-checks and prior acceptance logs were treated as
+`recorded-but-not-rerun` except for the fixed-upstream gate explicitly carried
+forward under the approved immutable-input rule.
+
+1. Target: `1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5`; implementation
+   `4ab6337a504d24ad4a27fe991dfdd353afd9745e`; baseline
+   `d6a3f22d2e6ac442036128f50e8349aeb1c33a64`. The worktree was clean before
+   and after. The implementation range changed only
+   `src/rapo/{formal_contract,resume}.py` and
+   `tests/{test_formal_contract,test_provenance}.py`; the delivery range
+   changed only batch-2 `PROGRESS.md` and `BLOCKED.md`.
+2. Environment: Python 3.10.20, Torch 2.5.1+cpu, pytest 8.4.2, Git 2.51.0,
+   GNU Bash 5.2.21, and WSL 2.6.1.0. WSL had no `python` command, so the
+   stdlib-only formal dry-run used Python 3.12.3 as explicit `python3`.
+3. Disclosed checks rerun: targeted files 47 passed; complete batch-2 suite 80
+   passed; full suite 103 passed, 0 skipped. Compileall, all three launcher
+   syntax checks, current diff check, and `d6a3f22..1d74a1e` diff check
+   returned 0.
+4. Formal dry-run returned exactly two epochs, 104 sampler examples per epoch,
+   208 sample presentations, 1,664 generations, 14 optimizer steps, world size
+   8, BF16, FlashAttention-2, formal ZeRO-3, and `pending_hardware_gate`.
+5. Five existing blocker classes were independently reconstructed with direct
+   production API calls and repository-external inputs. Legal controls passed;
+   the representative attention, namespace, DeepSpeed, Trainer-step, and
+   string `require_ctan` controls all failed before use or binding. The failed
+   Trainer-step write left no reusable binding.
+6. The single new negative probe found that a direct non-standard
+   `write_checkpoint_binding(..., require_ctan="false")` call can write an
+   unusable string-valued binding. The patched Trainer's standard path passes
+   the boolean expression `self.controller is not None`, and validation rejects
+   the malformed binding before resume. This is a non-blocking P2 observation,
+   not a standard-path blocker or a formal finding created by the acceptor.
+7. The fixed patch and apply script were unchanged from `dc63735` and matched
+   SHA256 `A8425A7E8907089A01D7698C9E8D144E068417D98AED1D58DB8164279D1352B2`
+   and `3D29ECFB96051EE3703B68E1BED1083555F3AB6B61B0EED99629886BF810E828`;
+   the Visual-RFT pin remained `2ffad63b25ddd79bfe25d3e046645401201c89d6`.
+   The real apply/diff/reverse/compile result from the immediately preceding
+   `dc63735` independent acceptance is therefore `carried-forward-unchanged`.
+   One initial PowerShell range interpolation attempt returned Git usage exit
+   129; the corrected explicit range returned 0 and showed no changed inputs.
+8. Verdict: **batch 2 passed final independent CPU technical acceptance with
+   one non-blocking P2 observation**. The leader still owns final batch release.
+   No GPU, training, inference, SSH, network, installation, deletion, or push
+   was performed. This does not authorize Task 7, BF16 hardware gates, or the
+   formal 10-task chain.
+
+After the verdict and clean-worktree check, the leader explicitly invoked
+`neat-freak` in the same acceptance conversation. The role exception is limited
+to synchronizing docs/rules and read-only residue inventory; it does not change
+business code, tests, configs, formal findings, generated memory, evidence, or
+the acceptance verdict.
+
 ## B2-HIDDEN-001/002/003 final repair (2026-08-02)
 
 1. Goal: add one representative regression per approved P1 and enforce only the frozen formal namespace, formal DeepSpeed path, and JSON-boolean RaPO CTAN binding.

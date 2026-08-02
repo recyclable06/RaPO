@@ -36,23 +36,24 @@ of scope until the paper reproduction is complete.
       evaluation, and provenance implementation.
 - [x] Repair and independently revalidate the original batch-2 P1 attention
       and Trainer-step failures.
-- [ ] Repair the three new P1 contract failures found by the complete batch-2
-      re-acceptance and rerun the full independent acceptance suite.
+- [x] Repair the three new P1 contract failures found by the complete batch-2
+      re-acceptance and pass the final independent CPU acceptance suite.
 - [ ] Close the remaining audit-driven CPU/no-GPU orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
 Batch 1 acceptance covers local CPU semantics, lineage, and failure detection.
-Batch 2's original P1 failures were repaired at `90f36f6` and independently
-revalidated at `dc63735`: the 44/77/100-test suites, original regression
-controls, static gates, formal dry-run, and fixed-upstream patch check all
-passed. The complete re-acceptance still did not pass because three new P1
-probes showed that a formal profile could use the legacy output namespace or
-legacy DeepSpeed config, and a RaPO checkpoint binding could encode
-`require_ctan` as the string `"false"` without rejection. The current blockers
-are recorded in
+Batch 2's original P1 failures were repaired at `90f36f6` and revalidated at
+`dc63735`. The three later P1 profile/binding failures were repaired at
+`4ab6337`; final independent CPU acceptance at `1d74a1e` reran the 47/80/103
+suites with 0 skipped, static gates, formal dry-run, five direct production-API
+regressions, and the unchanged fixed-upstream gate. All blocking controls
+passed. One non-standard writer call can still emit a string-valued CTAN
+binding, but the standard Trainer supplies a boolean and resume validation
+fails closed; this is recorded as a non-blocking P2 observation in
 [docs/remediation/batch2/BLOCKED.md](docs/remediation/batch2/BLOCKED.md).
-Neither CPU result is GPU evidence, a rerun of training, or completion of the
+This technical acceptance remains pending the leader's final batch-release
+decision. It is not GPU evidence, a rerun of training, or completion of the
 paper reproduction. The authoritative current checkpoint is in
 [AGENTS.md](AGENTS.md); the dated independent findings remain in
 [docs/audit/2026-07-31-independent-audit.md](docs/audit/2026-07-31-independent-audit.md).

@@ -68,7 +68,7 @@
 - 固定上游 patch、外部数据身份等适用上述复用；patch、apply 脚本、上游 pin、目标文件或执行环境契约任一变化时必须重新实跑。执行者自报结果、可变运行环境、训练结果和失败项不得继承。
 - 一般旧日志仍标记 `recorded-but-not-rerun`；`carried-forward-unchanged` 只适用于紧邻前一轮独立验收已经通过、输入集合可完整哈希且本轮未变化的门禁，并须在报告中列出来源 commit 与现场哈希证明。
 
-本节不授权 GPU 与本地整改双线并行；实验仍按用户批准的批次依赖顺序进行。本节也不追溯改变既有正式 finding、批次 2 当前“不通过”裁决或其 P1 标签；若要按新标准重分级，必须由用户另行批准相应裁决流程并留下版本化记录。
+本节不授权 GPU 与本地整改双线并行；实验仍按用户批准的批次依赖顺序进行。本节也不追溯改变既有正式 finding、历史验收裁决或其当时的 P1 标签；后续整改与独立验收可以更新当前技术状态，但不得改写历史证据。若要按新标准重分级，必须由用户另行批准相应裁决流程并留下版本化记录。
 
 ## 角色间交接协议
 
@@ -125,15 +125,15 @@
 - 第二次验收尝试因旧目标错误地把 `fb29128` 和未提交 `AGENTS.md` 当作预期现场而 `BLOCKED`，同样不具正式验收效力；其输出只作 `recorded-but-not-rerun` 历史记录，不得覆盖后来的指定 HEAD。
 - 独立 CPU 验收已在 `655f88269ed75c0bcab3844a4412313f9342239d` 完整重跑并通过：provenance 19 passed、全套 67 passed、0 skipped；compile、launcher syntax、两项 diff check、固定上游 patch apply/reverse-check 及 3 项独立负向抽查均符合预期。
 - 该结论只关闭批次 1 的本地 CPU 语义、血缘与报警能力验收，不代表 GPU-ready、训练已复跑、论文级完整复现通过或正式实验放行；独立审查中的其他 finding 仍按原裁决管理。
-- 批次 2 提交链：`91d3c7f09c3f715de7bd4521b961cd05ae09d4e0` 实现正式契约，`3661b6755faf39c84e9ba368b2d23cd232cd0fd7` 记录首轮交付；首轮独立验收复现 `B2-ACC-001/002` 后，`90f36f6d41023866dd5f994b7d0168ff5b4c1397` 完成返修，`dc637359e4df1d18846541e8a6655686ae097e8f` 记录返修交付。
-- 批次 2 完整独立 CPU 复验在 `dc637359e4df1d18846541e8a6655686ae097e8f` **仍不通过**：目标套件 44 passed、批次套件 77 passed、全套 100 passed/0 skipped；compile、三个 launcher syntax、两项 diff check、formal dry-run、固定上游 patch 检查和原 `B2-ACC-001/002` 合法/非法对照均符合预期，但 3 项新的 P1 负向抽查全部报警失效。
-- `B2-HIDDEN-001`（P1）：外部 formal profile 仅把 `output_namespace` 改为 `legacy_2080ti` 后，profile loader 与 dry-run 仍接受，破坏 formal/legacy 输出隔离。
-- `B2-HIDDEN-002`（P1）：外部 formal profile 仅把 `training.deepspeed_config` 改为 legacy FP16 CPU-offload 配置后仍被接受，未强制冻结的 formal BF16 ZeRO-3 配置。
-- `B2-HIDDEN-003`（P1）：合法 RaPO checkpoint binding 的 `require_ctan` 从布尔 `true` 改为字符串 `"false"` 后仍通过验证，method-state binding 未执行严格类型校验。
-- 本轮复验只覆盖本地 CPU 正式契约与报警能力；不代表 GPU-ready、BF16/FlashAttention/NCCL 实际执行、训练已复跑、Task 7、正式 10-task 或论文级复现放行。批次 2 详细证据与当前 blocker 以 `docs/remediation/batch2/{PROGRESS,BLOCKED,decisions}.md` 为准。
+- 批次 2 提交链：`91d3c7f09c3f715de7bd4521b961cd05ae09d4e0` 实现正式契约，`3661b6755faf39c84e9ba368b2d23cd232cd0fd7` 记录首轮交付；`90f36f6d41023866dd5f994b7d0168ff5b4c1397` 修复 `B2-ACC-001/002`，`dc637359e4df1d18846541e8a6655686ae097e8f` 记录返修交付；`4ab6337a504d24ad4a27fe991dfdd353afd9745e` 修复 `B2-HIDDEN-001/002/003`，`1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5` 记录最终返修交付。
+- 批次 2 最后一轮独立 CPU 验收在 `1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5` **技术通过（附一项 non-blocking P2）**：目标套件 47 passed、批次套件 80 passed、全套 103 passed/0 skipped；compile、三个 launcher syntax、两项 diff check 和 formal dry-run 均符合批准判据，验收前后工作区 clean。
+- `B2-ACC-001/002` 与 `B2-HIDDEN-001/002/003` 均由验收者在仓库外直接调用生产 API 重建合法/非法对照；attention、namespace、DeepSpeed、Trainer step 与 JSON-boolean CTAN binding 的非法对照全部在使用或写入前失败，失败的 step binding 未留下可复用文件。
+- 唯一新抽查发现 `write_checkpoint_binding` 的非标准 Python API 调用仍可传入字符串 `require_ctan` 并写出不可用 binding；固定 Trainer 路径传入布尔表达式，且 `validate_checkpoint_binding` 会在 resume 前 fail-closed，因此记录为 non-blocking P2 observation，不阻断批次 2 CPU 技术验收，也不由验收者创建或关闭正式 finding。
+- 固定上游 patch 与 apply 脚本在 `dc63735..1d74a1e` 零变化，SHA256 分别为 `A8425A7E8907089A01D7698C9E8D144E068417D98AED1D58DB8164279D1352B2`、`3D29ECFB96051EE3703B68E1BED1083555F3AB6B61B0EED99629886BF810E828`，pin 仍为 `2ffad63b25ddd79bfe25d3e046645401201c89d6`；`dc63735` 的真实 apply/diff/reverse/compile 门禁按批准规则标为 `carried-forward-unchanged`。
+- 本轮验收只覆盖本地 CPU 正式契约与报警能力；不代表 GPU-ready、BF16/FlashAttention/NCCL 实际执行、训练已复跑、Task 7、正式 10-task 或论文级复现放行。批次 2 详细证据与当前状态以 `docs/remediation/batch2/{PROGRESS,BLOCKED,decisions}.md` 为准。
 - 各轮验收 checkout、缓存和负向探针均位于仓库外系统临时目录，只是临时输入，不是永久 artifact；版本化记录只保留判据、结果和非声明边界，不依赖这些路径长期存在。
-- 角色例外记录：批次 1 正式验收、批次 2 首轮验收和本次批次 2 返修复验在裁决与仓库零变化复核完成后，领导均在原验收对话明确调用 `neat-freak` 做知识收口；例外范围仅限同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变或补强先前独立验收结论。
-- 下一动作：由独立咨询对话依据 `B2-HIDDEN-001/002/003` 和正式工件起草最小返修目标，领导批准后交给新的整改执行对话；修复后必须由新的独立验收对话完整重跑批次 2，不得只跑失败项。批次 2 未关闭前不得进入后续 GPU、Task 7、BF16 gate 或正式 10-task 流程。
+- 角色例外记录：批次 1 正式验收、批次 2 首轮验收、`dc63735` 返修复验和 `1d74a1e` 最终返修复验在裁决与仓库零变化复核完成后，领导均在原验收对话明确调用 `neat-freak` 做知识收口；例外范围仅限同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变或补强先前独立验收结论。
+- 下一动作：领导依据 `1d74a1e` 的独立 CPU 技术通过结果决定是否最终放行批次 2；获批后按独立审查依赖顺序进入后续 CPU/no-GPU orchestration 批次，不得把本轮结论扩写为 GPU、Task 7、BF16 gate 或正式 10-task 放行。
 
 ## 交付最小格式
 

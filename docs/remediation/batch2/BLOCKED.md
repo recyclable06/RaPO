@@ -1,22 +1,51 @@
 # BLOCKED
 
-## Final B2-HIDDEN repair executor status (2026-08-02)
+## Current final CPU acceptance status (2026-08-02)
+
+No blocking CPU acceptance issue was reproduced at
+`1d74a1ef5901b6f437cd7cf7ca19f1a56ad858c5`. The final independent acceptance
+reran the 47/80/103 suites with 0 skipped, static/dry-run gates, and direct
+legal/illegal controls for `B2-ACC-001/002` and
+`B2-HIDDEN-001/002/003`; all approved blocking criteria behaved as required.
+The acceptor did not create or close formal findings; this section records the
+current technical acceptance result while preserving the historical failures
+below.
+
+### Non-blocking P2 observation
+
+A direct non-standard Python call can pass string `"false"` as
+`write_checkpoint_binding(..., require_ctan=...)` and produce an unusable
+binding. The standard patched Trainer passes the boolean expression
+`self.controller is not None`, and `validate_checkpoint_binding` rejects the
+string before resume. No frozen launcher/CLI or normally generated standard
+artifact path was shown to alter training, resume continuity, or a formal
+result. This remains non-blocking and is not a new formal finding.
+
+### Release boundary
+
+The leader still decides final batch-2 release. `pending_hardware_gate`, GPU
+execution, BF16/FlashAttention/NCCL behavior, training, Task 7, and the formal
+10-task chain remain out of scope and unapproved.
+
+## Historical final B2-HIDDEN repair executor status (2026-08-02)
 
 无（整改执行层面）。Implementation commit
 `4ab6337a504d24ad4a27fe991dfdd353afd9745e` passed the approved executor CPU
 self-checks at 47/80/103 tests with 0 skipped and preserved the formal dry-run
 budget and numerical-path declarations. The historical P1 entries below are
 retained as independent-acceptance evidence; this executor does not close them
-or declare batch 2 accepted. A new independent acceptance conversation must
-rerun the complete protocol before any release decision.
+or declare batch 2 accepted. At that time the required next step was a new
+independent acceptance conversation rerunning the complete protocol; that step
+was later completed at `1d74a1e` and is recorded above.
 
-## Current CPU acceptance blockers after repair revalidation (2026-08-02)
+## Historical CPU acceptance blockers at `dc63735` (2026-08-02)
 
 Batch 2 did not pass complete independent CPU re-acceptance at
 `dc637359e4df1d18846541e8a6655686ae097e8f`. The 44/77/100-test suites, static
 gates, formal dry-run, fixed-upstream patch checks, and independent
 `B2-ACC-001/002` legal/illegal controls passed. Those original two failures are
-not current blockers at this target. Three new P1 contract failures remain:
+not blockers at this historical target. Three new P1 contract failures were
+present at `dc63735`:
 
 1. **`B2-HIDDEN-001` (P1): formal output namespace is not isolated.** A legal
    formal control used namespace `formal`. An external copy differing only by
@@ -35,11 +64,10 @@ not current blockers at this target. Three new P1 contract failures remain:
    of requiring a JSON boolean. The checkpoint inventory and Trainer step were
    unchanged.
 
-Next lifecycle step: an independent consulting conversation may draft one
-minimal repair goal from these versioned failures; the leader must approve it
-before a new remediation conversation changes code. After repair, a new
-independent acceptance conversation must rerun the entire batch-2 protocol,
-not only these three probes.
+The required next step at that historical target was a leader-approved minimal
+repair followed by a new independent acceptance conversation rerunning the
+entire batch-2 protocol. That sequence was completed by repair `4ab6337` and
+final acceptance at `1d74a1e`; the current status is recorded at the top.
 
 ## Repair executor status before re-acceptance (2026-08-02)
 

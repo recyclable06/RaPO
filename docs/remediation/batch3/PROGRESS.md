@@ -96,8 +96,10 @@
 - The known batch-2 string `require_ctan` P2 was not modified.
 - The independent CPU acceptance below found no reason to open the single
   permitted repair round.
-- Leader release, any GPU gate, and any formal experiment remain subject to
-  separate explicit approval.
+- The leader released the approved local CPU/no-GPU scope after the independent
+  acceptance below; batch 3 is closed without a repair round.
+- Any GPU gate and any formal experiment remain subject to a separate explicit
+  approval.
 
 ## Independent CPU acceptance (2026-08-02)
 
@@ -153,5 +155,18 @@
 - After the acceptance conclusion, the leader explicitly invoked
   `neat-freak` for docs/rules synchronization and read-only residue inventory.
   That exception does not change the acceptance result or authorize business
-  code, tests, configuration, formal finding, memory, cleanup, release, GPU, or
-  remote changes.
+  code, tests, configuration, formal finding, memory, cleanup, GPU, or remote
+  changes. The separate leader release decision is recorded below.
+
+## Leader release and knowledge closeout (2026-08-02)
+
+- The leader explicitly released batch 3 after reviewing the independent
+  acceptance result. This closes only the approved local CPU/no-GPU
+  orchestration scope and does not spend the single repair allowance.
+- The same instruction authorized `neat-freak` knowledge closeout. The
+  closeout synchronizes `AGENTS.md`, `README.md`, and the three batch-3 records;
+  it does not modify business code, tests, configuration, formal findings, or
+  generated memory and does not delete retained evidence or workspace residue.
+- The next candidate milestone is the audit-defined batch-4 paired task-6
+  BF16/GPU diagnostic gate. It requires a new candidate goal, leader approval,
+  and a separate formal role before any GPU action.

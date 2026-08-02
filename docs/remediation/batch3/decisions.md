@@ -1,8 +1,8 @@
 # Batch 3 decisions
 
 Sections D-B3-001 through D-B3-004 record decisions inside the approved batch-3
-remediation scope. D-B3-005 records the later independent acceptance outcome.
-This document does not constitute leader release.
+remediation scope. D-B3-005 records the later independent acceptance outcome,
+and D-B3-006 records the leader's final local CPU/no-GPU release.
 
 ## D-B3-001 — restricted plan, not a general scheduler
 
@@ -53,3 +53,15 @@ batch-3 local CPU scope. Even after such release, BF16/GPU work requires a new
 approved goal and remains gated by `pending_hardware_gate`; the formal chain
 must start from the pinned base at Task 1 rather than continue the legacy Task
 6 artifacts.
+
+## D-B3-006 — leader release and closed scope
+
+After reviewing the independent acceptance result, the leader explicitly
+released batch 3's approved local CPU/no-GPU scope on 2026-08-02. Batch 3 is
+closed with no blocking issue, no new P2 observation, and no repair round.
+
+This governance release does not widen the technical evidence. GPU readiness,
+actual BF16/FlashAttention/NCCL execution, training, inference, Task 7, the
+formal 10-task experiment, and paper-level reproduction remain unverified. A
+batch-4 GPU diagnostic requires a separate candidate goal and explicit leader
+approval.

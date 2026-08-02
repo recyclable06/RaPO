@@ -40,8 +40,8 @@ of scope until the paper reproduction is complete.
       re-acceptance and pass the final independent CPU acceptance suite.
 - [x] Receive leader release for batch 2's local CPU scope, with the remaining
       non-standard binding-type observation retained as P2 backlog.
-- [x] Implement and independently accept the audit-driven CPU/no-GPU
-      orchestration gates.
+- [x] Implement, independently accept, and receive leader release for the
+      audit-driven CPU/no-GPU orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
@@ -65,10 +65,11 @@ mean/population-std checks, and three negative artifact/recovery probes. It
 technically passed with no blocking issue and no new P2 observation; details
 are in
 [docs/remediation/batch3/PROGRESS.md](docs/remediation/batch3/PROGRESS.md).
-This is not yet leader release for batch 3, GPU evidence, a rerun of training,
-or completion of the paper reproduction. The next milestone is the leader's
-batch-3 local CPU release decision; any later BF16/GPU gate requires a separate
-approved goal. The authoritative current checkpoint remains
+The leader subsequently released batch 3's local CPU/no-GPU scope, closing the
+batch without using its repair allowance. This is not GPU evidence, a rerun of
+training, or completion of the paper reproduction. The next candidate
+milestone is the paired task-6 BF16/GPU diagnostic gate; it still requires a
+separate approved goal. The authoritative current checkpoint remains
 [AGENTS.md](AGENTS.md), and the dated independent findings remain in
 [docs/audit/2026-07-31-independent-audit.md](docs/audit/2026-07-31-independent-audit.md).
 

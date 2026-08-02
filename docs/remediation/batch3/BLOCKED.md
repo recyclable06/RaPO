@@ -9,7 +9,8 @@ and no new non-blocking P2 observation. The three bounded negative probes all
 failed before a wrong artifact, wrong resume state, or incomplete prediction
 set could affect the result. No repair round is opened.
 
-Leader release remains pending; this is a governance decision, not a technical
-blocker. GPU readiness, actual BF16/FlashAttention/NCCL behavior, training,
-inference, Task 7, the formal 10-task experiment, and paper-level reproduction
-remain out of scope and unverified.
+The leader released the approved local CPU/no-GPU batch-3 scope on 2026-08-02.
+Batch 3 is closed without a repair round. GPU readiness, actual
+BF16/FlashAttention/NCCL behavior, training, inference, Task 7, the formal
+10-task experiment, and paper-level reproduction remain out of scope and
+unverified rather than batch-3 blockers.

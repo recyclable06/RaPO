@@ -32,14 +32,23 @@ of scope until the paper reproduction is complete.
       sensitivity from inference-hardware effects.
 - [x] Complete the independent audit and CPU-only independent acceptance of
       remediation batch 1.
-- [ ] Close the remaining audit-driven CPU/no-GPU remediation and orchestration
-      gates.
+- [x] Deliver remediation batch 2's strict two-epoch, profile, resume,
+      evaluation, and provenance implementation.
+- [ ] Repair the two P1 failures found by batch 2 independent CPU acceptance
+      and rerun the complete independent acceptance suite.
+- [ ] Close the remaining audit-driven CPU/no-GPU orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
-Batch 1 acceptance covers local CPU semantics, lineage, and failure detection
-only. It is not GPU readiness, a rerun of training, or completion of the paper
-reproduction. The authoritative current checkpoint is in
+Batch 1 acceptance covers local CPU semantics, lineage, and failure detection.
+Batch 2 implementation was delivered at `3661b67`, but its 2026-08-02
+independent CPU acceptance did not pass: the disclosed 65/88-test suites were
+green, while hidden probes found that a formal profile could downgrade training
+attention to SDPA and a resume binding could disagree with Trainer global step.
+The open blockers are recorded in
+[docs/remediation/batch2/BLOCKED.md](docs/remediation/batch2/BLOCKED.md).
+Neither CPU result is GPU evidence, a rerun of training, or completion of the
+paper reproduction. The authoritative current checkpoint is in
 [AGENTS.md](AGENTS.md); the dated independent findings remain in
 [docs/audit/2026-07-31-independent-audit.md](docs/audit/2026-07-31-independent-audit.md).
 

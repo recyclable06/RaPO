@@ -85,7 +85,7 @@
 - 历史诊断命令在独立验收 Codex重跑前标记为 `recorded-but-not-rerun`；新验收不得直接继承旧的 `passed` 或 `failed`。
 - 已知缺陷尚未整改时，不为形式完整而立即重复同一轮正式验收；应先批准整改目标、完成修复和回归，再由新建验收 Codex完整重跑。
 
-## 当前检查点（2026-08-01）
+## 当前检查点（2026-08-02）
 
 - 独立审查已提交：`42b1a14`；报告结论是不具备论文级实验放行条件。
 - 批次 1 提交链：`907345e` 完成首轮语义与血缘整改，`10e43c2` 修复 manifest 自哈希闭环，`fb29128` 记录整改交付，`655f882` 只新增本治理规约。
@@ -93,9 +93,14 @@
 - 第二次验收尝试因旧目标错误地把 `fb29128` 和未提交 `AGENTS.md` 当作预期现场而 `BLOCKED`，同样不具正式验收效力；其输出只作 `recorded-but-not-rerun` 历史记录，不得覆盖后来的指定 HEAD。
 - 独立 CPU 验收已在 `655f88269ed75c0bcab3844a4412313f9342239d` 完整重跑并通过：provenance 19 passed、全套 67 passed、0 skipped；compile、launcher syntax、两项 diff check、固定上游 patch apply/reverse-check 及 3 项独立负向抽查均符合预期。
 - 该结论只关闭批次 1 的本地 CPU 语义、血缘与报警能力验收，不代表 GPU-ready、训练已复跑、论文级完整复现通过或正式实验放行；独立审查中的其他 finding 仍按原裁决管理。
-- 验收使用的 checkout、缓存和负向探针均位于仓库外系统临时目录，只是临时输入，不是永久 artifact；版本化记录只保留判据、结果和非声明边界，不依赖这些路径长期存在。
-- 角色例外记录：正式验收裁决和仓库零变化复核完成后，领导在同一对话明确调用 `neat-freak` 做知识收口；例外范围仅限同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变或补强先前独立验收结论。
-- 下一动作：等待领导对批次 1 作最终放行决定；若放行，再由独立咨询对话依据审查依赖起草下一整改批次。不得由本次 CPU 验收自动推导 GPU、Task 7、BF16 gate 或正式 10-task 放行。
+- 批次 2 提交链：`91d3c7f09c3f715de7bd4521b961cd05ae09d4e0` 实现正式契约，`3661b6755faf39c84e9ba368b2d23cd232cd0fd7` 记录整改交付；实现与交付 diff、冻结文件 SHA256 和 profile canonical SHA 均在独立验收现场匹配目标。
+- 批次 2 独立 CPU 验收在 `3661b6755faf39c84e9ba368b2d23cd232cd0fd7` **不通过**：目标套件 65 passed、全套 88 passed/0 skipped，compile、launcher syntax、两项 diff check、formal dry-run 和固定上游 patch 检查均通过，但 3 项独立负向抽查中有 2 项 P1 报警失效。
+- `B2-ACC-001`（P1）：外部 formal profile 仅把 training attention 改为 `sdpa` 后，profile loader 与 dry-run 仍接受；这违反批次 2 冻结的 formal FlashAttention-2 要求。
+- `B2-ACC-002`（P1）：生产 checkpoint 的 `trainer_state.json.global_step=5` 与 binding `global_step=6` 不一致时，binding 写入与验证仍接受；Trainer/global-step 未被一致绑定。
+- prediction manifest 侧重复测试键抽查按预期在聚合前拒绝；它不抵消上述两项真实故障。批次 2 详细证据与当前 blocker 以 `docs/remediation/batch2/{PROGRESS,BLOCKED,decisions}.md` 为准。
+- 各轮验收 checkout、缓存和负向探针均位于仓库外系统临时目录，只是临时输入，不是永久 artifact；版本化记录只保留判据、结果和非声明边界，不依赖这些路径长期存在。
+- 角色例外记录：批次 1 与批次 2 的正式验收裁决和仓库零变化复核完成后，领导分别在原验收对话明确调用 `neat-freak` 做知识收口；例外范围仅限同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变或补强先前独立验收结论。
+- 下一动作：由独立咨询对话依据 `B2-ACC-001/002` 和正式工件起草最小返修目标，领导批准后交给新的整改执行对话；修复后必须由新的独立验收对话完整重跑批次 2，不得只跑失败项。批次 2 未关闭前不得进入后续 GPU、Task 7、BF16 gate 或正式 10-task 流程。
 
 ## 交付最小格式
 

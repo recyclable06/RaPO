@@ -66,3 +66,42 @@ independent config 50EE4DEA8231C6A46907B43C53EEBDB2BA4BEFECC9438EB9C2B0CCBCD1375
 No GPU, training, inference, SSH, remote write, dependency installation,
 deletion, or push was performed. These are executor self-checks, not an
 independent acceptance verdict.
+
+## Independent CPU acceptance (2026-08-02)
+
+The independent acceptance Codex treated all executor results above as
+`recorded-but-not-rerun` until reproducing them at the specified target.
+
+1. Target: `3661b6755faf39c84e9ba368b2d23cd232cd0fd7` on
+   `codex/rapo-b02-formal-contract`; the worktree was clean before and after
+   acceptance. The baseline-to-implementation and implementation-to-delivery
+   diffs matched the approved allowlists, and all frozen file and canonical
+   profile SHA256 values matched.
+2. Environment: Python 3.10.20, Torch 2.5.1+cpu, pytest 8.4.2 from
+   `D:\anaconda3\envs\rapo-b01\python.exe`.
+3. Disclosed checks rerun: batch-2 suite 65 passed in 32.18s; full suite 88
+   passed in 21.97s, 0 skipped. Compileall, all three launcher syntax checks,
+   current and baseline diff checks returned 0.
+4. Formal dry-run returned 2 epochs, 104 sampler examples/epoch, 208 sample
+   presentations, 1,664 generations, 14 optimizer steps, BF16,
+   FlashAttention-2, formal ZeRO-3, and `pending_hardware_gate`.
+5. A new external Visual-RFT checkout at pinned commit
+   `2ffad63b25ddd79bfe25d3e046645401201c89d6` passed the real patch apply,
+   upstream diff check, exact two-file scope, reverse-check, and patched Python
+   compilation. An earlier official clone attempt timed out before checkout
+   and produced no accepted checkout; it was not reused, and no manual cleanup
+   was performed.
+6. Three independent negative probes used repository-external inputs. A
+   manifest-side duplicate test key was rejected before aggregation as
+   expected. Two P1 probes failed: `B2-ACC-001` accepted a formal profile with
+   only training attention changed to `sdpa` during profile loading and
+   dry-run; `B2-ACC-002` accepted a checkpoint with
+   `trainer_state.json.global_step=5` and binding `global_step=6`.
+7. Verdict: **batch 2 did not pass independent CPU acceptance**. Green
+   disclosed tests and patch checks do not override the two reproducible P1
+   alarm failures. Details and the required lifecycle next step are in
+   `BLOCKED.md`.
+8. This verdict covers only local CPU contracts and failure detection. No GPU,
+   training, inference, SSH, remote write, dependency installation, deletion,
+   or push occurred. Repository-external acceptance inputs remain preserved
+   for user review and are not permanent versioned artifacts.

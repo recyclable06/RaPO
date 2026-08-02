@@ -94,5 +94,64 @@
 - `BLOCKED`: none.
 - New non-blocking P2 observations: none.
 - The known batch-2 string `require_ctan` P2 was not modified.
-- Any repair round, GPU gate, or formal experiment remains subject to separate
-  user approval and independent acceptance.
+- The independent CPU acceptance below found no reason to open the single
+  permitted repair round.
+- Leader release, any GPU gate, and any formal experiment remain subject to
+  separate explicit approval.
+
+## Independent CPU acceptance (2026-08-02)
+
+- Role: an independent acceptance conversation; it did not remediate, commit,
+  push, release, use subagents, run GPU work, train, infer, install, access the
+  network, or delete residue.
+- Exact target: `687449031a92562c5fd2db93fbfb0283bba9aaae`; implementation
+  `680d3d1302845b5052edcab002e809f35fada7b4`; baseline
+  `0bfb849e5eb7bd713fe7bc117eeea35b5a378b89`.
+- A repository-external `core.autocrlf=false` local clone matched the approved
+  AGENTS, audit, and orchestration-config SHA256 values. The baseline-to-target
+  diff was exactly the seven approved paths, and the checkout was clean before
+  and after acceptance.
+- Live CPU environment: Python 3.10.20, PyTorch 2.5.1+cpu, pytest 8.4.2.
+- Directed suite: `10 passed in 35.27s`, no skips. Full suite: `113 passed in
+  40.96s`, no skips. Compileall, all three launcher `bash -n` checks, current
+  `git diff --check`, and baseline-to-target `git diff --check` all exited 0.
+- Formal contract dry-run reported exactly 2 epochs, 104 sampler examples per
+  epoch, 208 sample presentations, 1,664 generations, 14 optimizer steps,
+  world size 8, BF16, FlashAttention-2, formal ZeRO-3, and
+  `pending_hardware_gate`.
+- Three new 10-task manifests and legal production-style artifacts were built
+  outside the repository without reusing the remediation directory or test
+  helper. Two real orchestration dry-runs were byte-identical. The plan had 60
+  training, 60 prediction, six metrics, and two summary nodes; all six
+  method/order matrices had 55 cells, 330 total; expected counts came from the
+  corresponding manifests; method keys/config/seeds/budgets and immediate
+  parent chains matched.
+- Fresh `status` exposed only six task-1 training frontiers. A legal finalized
+  task exposed only its own prediction and same-chain successor; a legal bound
+  resume exposed only the same run. With 120 valid training/prediction nodes,
+  only aggregate remained runnable.
+- Legal aggregate produced six order metrics, two method summaries, and 60
+  unique prediction hashes. Independent hand arithmetic matched both methods'
+  Last Accuracy and Forgetting mean and population standard deviation with
+  `ddof=0`.
+- Three unannounced controls each had a legal CLI comparison and failed before
+  use: a sibling-method prediction swap failed lineage validation; a foreign
+  order resume failed run/profile/contract binding; an interrupted prediction
+  file with one missing row failed the full-test count check. Restored legal
+  aggregate output was byte-identical by SHA256.
+- Fixed upstream patch, apply script, formal runner/profile, and reproduction
+  config did not change from `1d74a1e` to the target. Patch/script SHA256 and
+  the Visual-RFT pin matched, so the prior independent external apply gate is
+  `carried-forward-unchanged` under the repository rule.
+- Verdict: **technical pass** for the approved local CPU/no-GPU orchestration
+  scope. `blocking`: none. New `non-blocking P2`: none. GPU readiness, actual
+  BF16/FlashAttention/NCCL execution, training, inference, Task 7, the formal
+  10-task run, and paper-level reproduction remain out of scope.
+- Raw evidence is retained outside the repository at
+  `C:\Users\Administrator\AppData\Local\Temp\rapo-b3-accept-20260802-201527`.
+  It is temporary acceptance evidence, not a permanent project artifact.
+- After the acceptance conclusion, the leader explicitly invoked
+  `neat-freak` for docs/rules synchronization and read-only residue inventory.
+  That exception does not change the acceptance result or authorize business
+  code, tests, configuration, formal finding, memory, cleanup, release, GPU, or
+  remote changes.

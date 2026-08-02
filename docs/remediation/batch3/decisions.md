@@ -1,7 +1,8 @@
 # Batch 3 decisions
 
-Only decisions inside the approved batch-3 remediation scope are recorded
-here. This document does not constitute independent acceptance or release.
+Sections D-B3-001 through D-B3-004 record decisions inside the approved batch-3
+remediation scope. D-B3-005 records the later independent acceptance outcome.
+This document does not constitute leader release.
 
 ## D-B3-001 — restricted plan, not a general scheduler
 
@@ -36,3 +37,19 @@ Passing these CPU/no-GPU checks establishes only the orchestration contract and
 its fail-closed artifact handling. It does not establish GPU readiness, actual
 BF16/FlashAttention/NCCL execution, completed training or inference, Task 7,
 the formal 10-task experiment, or paper-level reproduction.
+
+## D-B3-005 — independent acceptance outcome and next gate
+
+Independent CPU acceptance at exact target
+`687449031a92562c5fd2db93fbfb0283bba9aaae` technically passed the approved
+local CPU/no-GPU orchestration scope with no blocking issue and no new P2
+observation. The conclusion is supported by live 10/113-test reruns, static
+gates, an independently built legal three-manifest chain, hand-checked
+population statistics, and three bounded negative artifact/recovery probes.
+
+The acceptance conversation did not create or close a formal finding and did
+not release the batch. The leader must separately decide final release for the
+batch-3 local CPU scope. Even after such release, BF16/GPU work requires a new
+approved goal and remains gated by `pending_hardware_gate`; the formal chain
+must start from the pinned base at Task 1 rather than continue the legacy Task
+6 artifacts.

@@ -138,9 +138,12 @@
 - 唯一新抽查发现 `write_checkpoint_binding` 的非标准 Python API 调用仍可传入字符串 `require_ctan` 并写出不可用 binding；固定 Trainer 路径传入布尔表达式，且 `validate_checkpoint_binding` 会在 resume 前 fail-closed，因此由领导保留为 non-blocking P2 backlog，不再为其返修。
 - 固定上游 patch 与 apply 脚本在 `dc63735..1d74a1e` 零变化，SHA256 分别为 `A8425A7E8907089A01D7698C9E8D144E068417D98AED1D58DB8164279D1352B2`、`3D29ECFB96051EE3703B68E1BED1083555F3AB6B61B0EED99629886BF810E828`，pin 仍为 `2ffad63b25ddd79bfe25d3e046645401201c89d6`；`dc63735` 的真实 apply/diff/reverse/compile 门禁按批准规则标为 `carried-forward-unchanged`。
 - 批次 2 放行只关闭本地 CPU 正式契约与报警能力；不代表 GPU-ready、BF16/FlashAttention/NCCL 实际执行、训练已复跑、Task 7、正式 10-task 或论文级复现放行。批次 2 详细证据与最终状态以 `docs/remediation/batch2/{PROGRESS,BLOCKED,decisions}.md` 为准。
+- 批次 3 提交链为 `680d3d1302845b5052edcab002e809f35fada7b4`（实现）和 `687449031a92562c5fd2db93fbfb0283bba9aaae`（交付记录）；独立 CPU 验收在精确 `6874490` 技术通过：10/113 tests、静态与 formal dry-run 门禁、128-node/330-cell DAG、frontier/resume、六份 order metrics/两份 summary/60 hashes 及手算 population std 均符合判据，前后 checkout clean。
+- 三项未预告抽查在 lineage、run/profile/contract binding 和 full-test count 处 fail-closed；`blocking` 为 none，未发现新 P2，既有 batch-2 string `require_ctan` P2 未重验。固定 patch 五项输入在 `1d74a1e..6874490` 零变化，继续按规则标为 `carried-forward-unchanged`。
+- 该结论只覆盖本地 CPU/no-GPU orchestration 与 artifact/恢复/统计报警能力，不代表领导已放行、GPU-ready、训练/推理完成、Task 7、正式 10-task 或论文级复现通过；详细证据以 `docs/remediation/batch3/{PROGRESS,BLOCKED,decisions}.md` 为准。
 - 各轮验收 checkout、缓存和负向探针均位于仓库外系统临时目录，只是临时输入，不是永久 artifact；版本化记录只保留判据、结果和非声明边界，不依赖这些路径长期存在。
-- 角色例外记录：批次 1 正式验收、批次 2 首轮验收、`dc63735` 返修复验和 `1d74a1e` 最终返修复验在裁决与仓库零变化复核完成后，领导均明确调用 `neat-freak` 做知识收口；本次最终放行后又在独立咨询对话授权同一范围的收口。例外只允许同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变先前独立验收结论。
-- 下一动作：由独立咨询对话按“批次 3 专用收敛口”使用 `leader.skill` 起草一个受限的主整改目标，领导批准后交给新的整改执行对话；批次 3 关闭前仍不得进入 GPU、Task 7、BF16 gate 或正式 10-task。
+- 角色例外记录：批次 1 正式验收、批次 2 首轮验收、`dc63735` 返修复验、`1d74a1e` 最终返修复验和 `6874490` 批次 3 主整改验收在裁决与仓库零变化复核完成后，领导均明确调用 `neat-freak` 做知识收口；批次 2 最终放行后又在独立咨询对话授权同一范围的收口。例外只允许同步 docs/rules 与只读清点残留，不改业务代码、测试、配置、正式 finding 或生成记忆，不删除现场，也不改变先前独立验收结论。
+- 下一动作：领导决定是否最终放行批次 3 的本地 CPU/no-GPU 范围；在领导明确放行前批次 3 不关闭。若放行，后续仍须由独立咨询对话起草受限的 BF16/GPU gate 候选目标并经领导批准；在新目标获批前不得进入 GPU、Task 7、BF16 gate 或正式 10-task。
 
 ## 交付最小格式
 

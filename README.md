@@ -40,7 +40,8 @@ of scope until the paper reproduction is complete.
       re-acceptance and pass the final independent CPU acceptance suite.
 - [x] Receive leader release for batch 2's local CPU scope, with the remaining
       non-standard binding-type observation retained as P2 backlog.
-- [ ] Close the remaining audit-driven CPU/no-GPU orchestration gates.
+- [x] Implement and independently accept the audit-driven CPU/no-GPU
+      orchestration gates.
 - [ ] Pass a paired task-6 BF16 stability gate on a homogeneous 8-GPU group.
 - [ ] Run the full 10-task experiment.
 
@@ -55,11 +56,20 @@ binding, but the standard Trainer supplies a boolean and resume validation
 fails closed; the leader retained this as non-blocking P2 backlog with no
 further batch-2 repair in
 [docs/remediation/batch2/BLOCKED.md](docs/remediation/batch2/BLOCKED.md).
-The leader released batch 2's local CPU scope after that acceptance. This is
-not GPU evidence, a rerun of training, or completion of the paper reproduction.
-The next milestone is the bounded CPU/no-GPU orchestration batch described by
-the authoritative current checkpoint in
-[AGENTS.md](AGENTS.md); the dated independent findings remain in
+The leader released batch 2's local CPU scope after that acceptance. Batch 3
+then added the frozen 10-task x 2-method x 3-order CPU/no-GPU orchestration
+contract at `680d3d1` and recorded its delivery at `6874490`. Independent
+acceptance at exact target `6874490` reran the 10/113-test suites with 0
+skipped, all static gates, deterministic DAG/status/aggregate controls, manual
+mean/population-std checks, and three negative artifact/recovery probes. It
+technically passed with no blocking issue and no new P2 observation; details
+are in
+[docs/remediation/batch3/PROGRESS.md](docs/remediation/batch3/PROGRESS.md).
+This is not yet leader release for batch 3, GPU evidence, a rerun of training,
+or completion of the paper reproduction. The next milestone is the leader's
+batch-3 local CPU release decision; any later BF16/GPU gate requires a separate
+approved goal. The authoritative current checkpoint remains
+[AGENTS.md](AGENTS.md), and the dated independent findings remain in
 [docs/audit/2026-07-31-independent-audit.md](docs/audit/2026-07-31-independent-audit.md).
 
 ## Environment

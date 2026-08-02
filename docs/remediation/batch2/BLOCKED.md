@@ -1,5 +1,15 @@
 # BLOCKED
 
+## Final B2-HIDDEN repair executor status (2026-08-02)
+
+无（整改执行层面）。Implementation commit
+`4ab6337a504d24ad4a27fe991dfdd353afd9745e` passed the approved executor CPU
+self-checks at 47/80/103 tests with 0 skipped and preserved the formal dry-run
+budget and numerical-path declarations. The historical P1 entries below are
+retained as independent-acceptance evidence; this executor does not close them
+or declare batch 2 accepted. A new independent acceptance conversation must
+rerun the complete protocol before any release decision.
+
 ## Current CPU acceptance blockers after repair revalidation (2026-08-02)
 
 Batch 2 did not pass complete independent CPU re-acceptance at

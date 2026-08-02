@@ -1,5 +1,62 @@
 # Batch 2 progress
 
+## B2-HIDDEN-001/002/003 final repair (2026-08-02)
+
+1. Goal: add one representative regression per approved P1 and enforce only the frozen formal namespace, formal DeepSpeed path, and JSON-boolean RaPO CTAN binding.
+2. Order: verify clean `d6a3f22` baseline -> add three failing regressions -> make three centralized checks -> rerun all CPU gates -> commit code/tests then delivery records.
+3. Task 0 live rerun: branch `codex/rapo-b02-formal-contract`, clean `d6a3f22d2e6ac442036128f50e8349aeb1c33a64`, 100 passed/0 skipped, and diff check empty.
+4. Largest risk: accidentally broadening validation beyond the three frozen standard-path contracts or changing canonical formal dry-run semantics.
+
+### Red baseline
+
+```text
+TARGETED RED: 3 failed, 44 passed in 9.63s
+FAILED test_formal_namespace_downgrade_fails_before_dry_run: invalid namespace was accepted
+FAILED test_formal_deepspeed_downgrade_fails_before_dry_run: legacy DeepSpeed path was accepted
+FAILED test_rapo_binding_rejects_non_boolean_require_ctan: string "false" was accepted
+IMPLEMENTATION DIFF: git diff -- src/rapo/formal_contract.py src/rapo/resume.py returned no output
+```
+
+### Green implementation attempt 1
+
+```text
+TARGETED GREEN: 47 passed in 9.49s
+Implementation: exact formal namespace and DeepSpeed path checks plus strict JSON-boolean require_ctan comparison.
+BATCH-2 GREEN: 80 passed in 9.57s
+FULL GREEN: 103 passed in 9.81s, 0 skipped
+COMPILEALL: exit 0
+LAUNCHER SYNTAX formal: exit 0
+LAUNCHER SYNTAX smoke: exit 0
+LAUNCHER SYNTAX 2080ti: exit 0
+FORMAL DRY-RUN setup attempt 1: stopped before contract generation because the documented `RAPO_CPU_PYTHON=python` was absent in the current bash environment (`python: command not found`); no GPU/training/inference ran.
+FORMAL DRY-RUN attempt 2: exit 0 with WSL `/usr/bin/python3` 3.12.3 substituted only because the documented `python` command was absent; the stdlib-only runner emitted 2 epochs, 104 sampler examples/epoch, 208 presentations, 1,664 generations, 14 optimizer steps, BF16, FlashAttention-2, formal ZeRO-3, world size 8, and `pending_hardware_gate`.
+DIFF CHECK before implementation commit: exit 0 (Git emitted only LF-to-CRLF working-copy notices).
+```
+
+### Final repair delivery self-check
+
+Implementation commit: `4ab6337a504d24ad4a27fe991dfdd353afd9745e`.
+
+```text
+RED targeted: 3 failed, 44 passed in 9.63s; implementation diff was empty
+GREEN targeted: 47 passed in 9.49s
+GREEN batch-2: 80 passed in 9.57s
+GREEN full: 103 passed in 9.81s, 0 skipped
+compileall and formal/smoke/2080ti bash syntax: exit 0
+formal dry-run: 2 epochs, 208 presentations, 1,664 generations, 14 optimizer steps; BF16, FlashAttention-2, formal ZeRO-3, pending_hardware_gate
+git diff --check: exit 0
+baseline-to-implementation paths: src/rapo/formal_contract.py, src/rapo/resume.py, tests/test_formal_contract.py, tests/test_provenance.py
+```
+
+The fixed-upstream patch, apply script, pin, and configs were not modified. Per
+the approved goal, the fixed-upstream patch was not cloned or reapplied, so no
+patch-apply result is claimed by this repair. No GPU, training, inference, SSH,
+remote write, dependency installation, deletion, or push was performed.
+Current remediation-executor blocker: none. These are executor self-checks,
+not an independent batch-2 acceptance or experiment-release verdict. The next
+release point is a new independent acceptance conversation rerunning the full
+batch-2 protocol.
+
 ## Independent CPU re-acceptance after repair (2026-08-02)
 
 The independent acceptance Codex treated the repair self-check and every prior

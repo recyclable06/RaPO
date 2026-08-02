@@ -1,5 +1,40 @@
 # Batch 2 progress
 
+## B2-ACC-001/002 repair (2026-08-02)
+
+1. Goal: fail before formal execution on either attention downgrade and before binding/resume on any Trainer global-step mismatch.
+2. Order: verify `d98e0ab` baseline -> add failing regressions -> make the smallest centralized validators -> rerun all gates -> commit code/tests then delivery records.
+3. Baseline live rerun: clean `d98e0abf7fbdc9609e6f25e8eb80af20cbd48734`, 88 passed/0 skipped, diff check empty, and all six repair-goal frozen SHA256 values matched.
+4. Largest risk: accepting caller or binding metadata without cross-checking the live `trainer_state.json`, especially during later resume validation.
+
+### Repair delivery self-check
+
+Implementation commit: `90f36f6d41023866dd5f994b7d0168ff5b4c1397`.
+
+```text
+RED targeted files: 11 failed, 33 passed in 9.75s
+  - all four formal training/evaluation sdpa/eager downgrades were accepted
+  - requested step 6 vs Trainer step 5, tampered binding step 6, and five malformed Trainer-step payloads were accepted
+GREEN targeted files: 44 passed in 11.33s
+GREEN disclosed batch-2 suite: 77 passed in 10.98s (historical suite was 65)
+GREEN full suite: 100 passed in 11.16s, 0 skipped (repair baseline was 88)
+compileall: exit 0
+git diff --check: exit 0
+```
+
+Formal and legacy canonical SHA256 remain
+`b7a661a4585a3423bfa89bcf9fe999862c0a15b2f5c532203bb77c62648d38f3`
+and `e7fce6058500e04102008c32fa79d4d54c111945300213510dd97bf835b5ba56`.
+The six frozen file SHA256 values matched the repair goal exactly. All five
+pre-delivery changed paths were allowlisted; the implementation commit contains
+only the two implementation and two test files. The fixed-upstream patch was
+not modified or reapplied, so no prior patch-apply output is claimed here.
+
+No GPU, training, inference, SSH, remote write, dependency installation,
+deletion, or push was performed. These are executor self-checks, not an
+independent batch-2 acceptance verdict. The next release point is a new
+independent acceptance conversation rerunning the complete batch-2 protocol.
+
 1. Goal: establish a machine-checkable formal experiment contract for strict two epochs, exact resume, complete evaluation, and isolated numerical profiles.
 2. Order: baseline gate -> profiles/formal runner -> dynamic CPU resume -> evaluation contract -> full verification -> code commit -> delivery-record commit.
 3. Largest risk: resume equivalence can look green while omitting optimizer, scheduler, RNG, global-step, or CTAN state; every component and the next token/loss sequence must be compared.

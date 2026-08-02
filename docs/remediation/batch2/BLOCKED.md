@@ -1,5 +1,14 @@
 # BLOCKED
 
+## Repair executor status (2026-08-02)
+
+No implementation blocker was encountered while applying the approved minimal
+repair at `90f36f6d41023866dd5f994b7d0168ff5b4c1397`. `B2-ACC-001` and
+`B2-ACC-002` remain formally open until a new independent acceptance
+conversation reruns the complete batch-2 protocol; executor tests cannot close
+them. The `pending_hardware_gate` and all downstream GPU/formal-chain gates
+remain unchanged.
+
 ## Open CPU acceptance blockers (2026-08-02)
 
 Batch 2 did not pass independent CPU acceptance at

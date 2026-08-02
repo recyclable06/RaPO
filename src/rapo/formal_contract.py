@@ -77,6 +77,13 @@ def validate_experiment_profile(profile: Mapping[str, Any]) -> None:
             raise ValueError("Formal profile requires exactly two epochs and forbids max_steps")
         if training["precision"] != "bf16" or evaluation["torch_dtype"] != "bfloat16":
             raise ValueError("Formal profile requires explicit BF16 training and evaluation")
+        if (
+            training["attention"] != "flash_attention_2"
+            or evaluation["attention"] != "flash_attention_2"
+        ):
+            raise ValueError(
+                "Formal profile requires FlashAttention-2 for training and evaluation"
+            )
         if hardware.get("expected_world_size") != 8:
             raise ValueError("Formal profile freezes expected_world_size=8")
     else:

@@ -144,6 +144,28 @@ def _inventory_sha256(inventory: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _read_trainer_global_step(checkpoint: Path) -> int:
+    trainer_state_path = checkpoint / "trainer_state.json"
+    if not trainer_state_path.is_file():
+        raise ValueError("Checkpoint is missing trainer_state.json")
+    try:
+        trainer_state = json.loads(trainer_state_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Checkpoint trainer_state.json is invalid") from exc
+    if not isinstance(trainer_state, dict):
+        raise ValueError("Checkpoint trainer_state.json must be a JSON object")
+    global_step = trainer_state.get("global_step")
+    if (
+        isinstance(global_step, bool)
+        or not isinstance(global_step, int)
+        or global_step < 0
+    ):
+        raise ValueError(
+            "Checkpoint trainer_state.json global_step must be a non-negative integer"
+        )
+    return global_step
+
+
 def _require_production_state(checkpoint: Path, *, require_ctan: bool) -> None:
     names = {path.name for path in checkpoint.rglob("*") if path.is_file()}
     required = {"trainer_state.json", "scheduler.pt"}
@@ -176,12 +198,23 @@ def write_checkpoint_binding(
     checkpoint = Path(checkpoint_path).resolve()
     if not checkpoint.is_dir():
         raise ValueError(f"Checkpoint directory does not exist: {checkpoint}")
+    trainer_global_step = _read_trainer_global_step(checkpoint)
     _require_production_state(checkpoint, require_ctan=require_ctan)
+    if (
+        isinstance(global_step, bool)
+        or not isinstance(global_step, int)
+        or global_step < 0
+    ):
+        raise ValueError("Requested global_step must be a non-negative integer")
+    if global_step != trainer_global_step:
+        raise ValueError(
+            "Requested global_step does not match trainer_state.json global_step"
+        )
     inventory = _file_inventory(checkpoint)
     payload = {
         "schema_version": 1,
         "identity": asdict(identity),
-        "global_step": global_step,
+        "global_step": trainer_global_step,
         "require_ctan": require_ctan,
         "checkpoint_inventory_sha256": _inventory_sha256(inventory),
     }
@@ -219,11 +252,25 @@ def validate_checkpoint_binding(
     if not binding.is_file():
         raise ValueError("Checkpoint is missing its run binding")
     payload = json.loads(binding.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Checkpoint binding must be a JSON object")
     if payload.get("identity") != asdict(expected_identity):
         raise ValueError("Checkpoint run/profile/contract binding does not match")
     if bool(payload.get("require_ctan")) != require_ctan:
         raise ValueError("Checkpoint method state binding does not match")
+    trainer_global_step = _read_trainer_global_step(checkpoint)
     _require_production_state(checkpoint, require_ctan=require_ctan)
+    binding_global_step = payload.get("global_step")
+    if (
+        isinstance(binding_global_step, bool)
+        or not isinstance(binding_global_step, int)
+        or binding_global_step < 0
+    ):
+        raise ValueError("Checkpoint binding global_step must be a non-negative integer")
+    if binding_global_step != trainer_global_step:
+        raise ValueError(
+            "Checkpoint binding global_step does not match trainer_state.json global_step"
+        )
     if payload.get("checkpoint_inventory_sha256") != _inventory_sha256(
         _file_inventory(checkpoint)
     ):

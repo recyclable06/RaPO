@@ -1,4 +1,5 @@
 import copy
+import json
 import random
 from pathlib import Path
 
@@ -31,6 +32,8 @@ def test_formal_and_legacy_profiles_are_canonical_and_isolated():
     assert formal["profile_kind"] == "formal"
     assert formal["training"]["num_train_epochs"] == 2
     assert "max_steps" not in formal["training"]
+    assert formal["training"]["attention"] == "flash_attention_2"
+    assert formal["evaluation"]["attention"] == "flash_attention_2"
     assert formal["hardware_gate"] == "pending_hardware_gate"
     assert legacy["profile_kind"] == "legacy_2080ti"
     assert legacy["training"]["budget_kind"] == "max_steps"
@@ -60,6 +63,34 @@ def test_formal_dry_run_has_machine_checkable_two_epoch_budget():
     assert contract["resolved"]["precision"] == "bf16"
     assert contract["resolved"]["world_size"] == 8
     assert contract["hardware_gate"] == "pending_hardware_gate"
+
+
+@pytest.mark.parametrize(
+    ("section", "attention"),
+    [
+        ("training", "sdpa"),
+        ("training", "eager"),
+        ("evaluation", "sdpa"),
+        ("evaluation", "eager"),
+    ],
+)
+def test_formal_attention_downgrade_fails_before_dry_run(
+    tmp_path, section, attention
+):
+    profile, profile_sha = load_experiment_profile(FORMAL_PROFILE)
+    profile[section]["attention"] = attention
+    external_profile = tmp_path / "formal_profile.json"
+    external_profile.write_text(json.dumps(profile), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Formal profile requires FlashAttention-2"):
+        load_experiment_profile(external_profile)
+    with pytest.raises(ValueError, match="Formal profile requires FlashAttention-2"):
+        build_dry_run_contract(
+            profile,
+            profile_sha256=profile_sha,
+            train_samples=101,
+            world_size=8,
+        )
 
 
 def test_formal_environment_rejects_every_legacy_smoke_variable():
@@ -188,18 +219,26 @@ def test_formal_runner_cannot_emit_max_steps():
     assert "pending_hardware_gate" in script
 
 
-def test_production_checkpoint_binding_covers_every_required_state(tmp_path):
-    checkpoint = tmp_path / "checkpoint-3"
+def _make_production_checkpoint(tmp_path, *, global_step=3, require_ctan=True):
+    checkpoint = tmp_path / f"checkpoint-{global_step}"
     checkpoint.mkdir()
     for name in (
-        "trainer_state.json",
         "scheduler.pt",
         "optimizer.pt",
         "rng_state.pth",
         "model.safetensors",
-        "rapo_state.json",
     ):
         (checkpoint / name).write_text(name, encoding="utf-8")
+    if require_ctan:
+        (checkpoint / "rapo_state.json").write_text("rapo_state.json", encoding="utf-8")
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": global_step}), encoding="utf-8"
+    )
+    return checkpoint
+
+
+def test_production_checkpoint_binding_covers_every_required_state(tmp_path):
+    checkpoint = _make_production_checkpoint(tmp_path)
     identity = CheckpointIdentity("formal-run", "a" * 64, "b" * 64)
 
     write_checkpoint_binding(
@@ -219,5 +258,78 @@ def test_production_checkpoint_binding_covers_every_required_state(tmp_path):
         validate_checkpoint_binding(
             checkpoint,
             expected_identity=identity,
+            require_ctan=True,
+        )
+
+
+def test_checkpoint_binding_rejects_requested_step_that_differs_from_trainer(tmp_path):
+    checkpoint = _make_production_checkpoint(tmp_path, global_step=5)
+    identity = CheckpointIdentity("formal-run", "a" * 64, "b" * 64)
+
+    with pytest.raises(ValueError, match="trainer_state.json global_step"):
+        write_checkpoint_binding(
+            checkpoint,
+            identity=identity,
+            global_step=6,
+            require_ctan=True,
+        )
+
+    assert not (checkpoint / "rapo_checkpoint_binding.json").exists()
+
+
+def test_checkpoint_binding_revalidates_step_against_trainer_state(tmp_path):
+    checkpoint = _make_production_checkpoint(tmp_path, global_step=5)
+    identity = CheckpointIdentity("formal-run", "a" * 64, "b" * 64)
+    binding = write_checkpoint_binding(
+        checkpoint,
+        identity=identity,
+        global_step=5,
+        require_ctan=True,
+    )
+
+    assert validate_checkpoint_binding(
+        checkpoint,
+        expected_identity=identity,
+        require_ctan=True,
+    )["global_step"] == 5
+
+    payload = json.loads(binding.read_text(encoding="utf-8"))
+    payload["global_step"] = 6
+    binding.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="trainer_state.json global_step"):
+        validate_checkpoint_binding(
+            checkpoint,
+            expected_identity=identity,
+            require_ctan=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "trainer_state",
+    [
+        None,
+        [],
+        {},
+        {"global_step": True},
+        {"global_step": 5.0},
+        {"global_step": -1},
+    ],
+)
+def test_checkpoint_binding_rejects_invalid_trainer_global_step(
+    tmp_path, trainer_state
+):
+    checkpoint = _make_production_checkpoint(tmp_path, global_step=5)
+    trainer_state_path = checkpoint / "trainer_state.json"
+    if trainer_state is None:
+        trainer_state_path.unlink()
+    else:
+        trainer_state_path.write_text(json.dumps(trainer_state), encoding="utf-8")
+    identity = CheckpointIdentity("formal-run", "a" * 64, "b" * 64)
+
+    with pytest.raises(ValueError, match="trainer_state.json"):
+        write_checkpoint_binding(
+            checkpoint,
+            identity=identity,
+            global_step=5,
             require_ctan=True,
         )

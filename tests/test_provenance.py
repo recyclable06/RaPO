@@ -419,13 +419,15 @@ def test_prepared_manifest_binds_exact_production_resume_checkpoint(tmp_path):
     checkpoint = tmp_path / "formal" / "output" / "checkpoint-3"
     checkpoint.mkdir(parents=True)
     for name in (
-        "trainer_state.json",
         "scheduler.pt",
         "optimizer.pt",
         "rng_state.pth",
         "model.safetensors",
     ):
         (checkpoint / name).write_text(name, encoding="utf-8")
+    (checkpoint / "trainer_state.json").write_text(
+        json.dumps({"global_step": 3}), encoding="utf-8"
+    )
     write_checkpoint_binding(
         checkpoint,
         identity=CheckpointIdentity(
